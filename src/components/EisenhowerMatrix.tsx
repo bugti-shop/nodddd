@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { toast } from 'sonner';
 import { loadTasksFromDB, saveTasksToDB } from '@/utils/taskStorage';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 interface MatrixTask {
   id: string;
@@ -65,10 +66,7 @@ const quadrantInfo = {
 
 export const EisenhowerMatrix = ({ isOpen, onClose, onConvertToTask }: EisenhowerMatrixProps) => {
   const { t } = useTranslation();
-  const [tasks, setTasks] = useState<MatrixTask[]>(() => {
-    const saved = localStorage.getItem('eisenhowerTasks');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [tasks, setTasks] = useState<MatrixTask[]>([]);
   const [newTaskInputs, setNewTaskInputs] = useState<Record<string, string>>({
     do: '',
     schedule: '',
@@ -77,7 +75,13 @@ export const EisenhowerMatrix = ({ isOpen, onClose, onConvertToTask }: Eisenhowe
   });
 
   useEffect(() => {
-    localStorage.setItem('eisenhowerTasks', JSON.stringify(tasks));
+    getSetting<MatrixTask[]>('eisenhowerTasks', []).then(setTasks);
+  }, []);
+
+  useEffect(() => {
+    if (tasks.length > 0) {
+      setSetting('eisenhowerTasks', tasks);
+    }
   }, [tasks]);
 
   const addTask = async (quadrant: MatrixTask['quadrant']) => {

@@ -13,6 +13,7 @@ import { TodoItem } from '@/types/note';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { toast } from 'sonner';
 import { loadTasksFromDB, updateTaskInDB } from '@/utils/taskStorage';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 interface DailyPlannerProps {
   isOpen: boolean;
@@ -60,32 +61,28 @@ export const DailyPlanner = ({ isOpen, onClose }: DailyPlannerProps) => {
     setTasks(allTasks.filter(t => !t.completed));
   };
 
-  const loadDailyPlan = () => {
+  const loadDailyPlan = async () => {
     const dateStr = selectedDate.toISOString().split('T')[0];
-    const savedPlans = localStorage.getItem('dailyPlans');
-    if (savedPlans) {
-      const plans: DailyPlan[] = JSON.parse(savedPlans);
-      const plan = plans.find(p => p.date === dateStr);
-      if (plan) {
-        setDailyPlan(plan);
-        setDailyGoal(plan.dailyGoal || '');
-        return;
-      }
+    const plans = await getSetting<DailyPlan[]>('dailyPlans', []);
+    const plan = plans.find(p => p.date === dateStr);
+    if (plan) {
+      setDailyPlan(plan);
+      setDailyGoal(plan.dailyGoal || '');
+      return;
     }
     setDailyPlan({ date: dateStr, plannedTasks: [] });
     setDailyGoal('');
   };
 
-  const saveDailyPlan = (plan: DailyPlan) => {
-    const savedPlans = localStorage.getItem('dailyPlans');
-    let plans: DailyPlan[] = savedPlans ? JSON.parse(savedPlans) : [];
+  const saveDailyPlan = async (plan: DailyPlan) => {
+    const plans = await getSetting<DailyPlan[]>('dailyPlans', []);
     const existingIdx = plans.findIndex(p => p.date === plan.date);
     if (existingIdx >= 0) {
       plans[existingIdx] = plan;
     } else {
       plans.push(plan);
     }
-    localStorage.setItem('dailyPlans', JSON.stringify(plans));
+    await setSetting('dailyPlans', plans);
     setDailyPlan(plan);
   };
 

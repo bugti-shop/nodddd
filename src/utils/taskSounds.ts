@@ -1,10 +1,12 @@
 // Task completion sound utility - like Todoist
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 // Base64 encoded completion sound (a pleasant "ding" sound)
 const COMPLETION_SOUND_BASE64 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYQrF1GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQZAAP8AAAaQAAAAgAAA0gAAABAAAAGkAAAAIAAANIAAAAQAAANIAAAAQRMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
 
 let completionAudio: HTMLAudioElement | null = null;
 let soundEnabled = true;
+let soundInitialized = false;
 
 // Initialize the audio element
 const initAudio = () => {
@@ -13,6 +15,16 @@ const initAudio = () => {
     completionAudio.volume = 0.5;
   }
 };
+
+// Initialize settings from IndexedDB
+const initSettings = async () => {
+  if (soundInitialized) return;
+  soundInitialized = true;
+  soundEnabled = await getSetting<boolean>('taskCompletionSound', true);
+};
+
+// Call init on module load
+initSettings();
 
 // Alternative: Create a programmatic completion sound using Web Audio API
 const createCompletionSound = (): void => {
@@ -79,17 +91,14 @@ export const playCompletionSound = (): void => {
  */
 export const setCompletionSoundEnabled = (enabled: boolean): void => {
   soundEnabled = enabled;
-  localStorage.setItem('taskCompletionSound', JSON.stringify(enabled));
+  setSetting('taskCompletionSound', enabled);
 };
 
 /**
  * Check if completion sound is enabled
  */
-export const isCompletionSoundEnabled = (): boolean => {
-  const saved = localStorage.getItem('taskCompletionSound');
-  if (saved !== null) {
-    soundEnabled = JSON.parse(saved);
-  }
+export const isCompletionSoundEnabled = async (): Promise<boolean> => {
+  soundEnabled = await getSetting<boolean>('taskCompletionSound', true);
   return soundEnabled;
 };
 
@@ -101,11 +110,5 @@ export const setCompletionSoundVolume = (volume: number): void => {
   if (completionAudio) {
     completionAudio.volume = Math.max(0, Math.min(1, volume));
   }
-  localStorage.setItem('taskCompletionVolume', JSON.stringify(volume));
+  setSetting('taskCompletionVolume', volume);
 };
-
-// Initialize from saved settings
-const savedEnabled = localStorage.getItem('taskCompletionSound');
-if (savedEnabled !== null) {
-  soundEnabled = JSON.parse(savedEnabled);
-}

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { TodoItem } from '@/types/note';
 import { toast } from 'sonner';
 import { loadTasksFromDB } from '@/utils/taskStorage';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 interface WeeklyReviewProps {
   isOpen: boolean;
@@ -76,19 +77,16 @@ export const WeeklyReview = ({ isOpen, onClose }: WeeklyReviewProps) => {
 
     // Load saved review
     const weekKey = weekStart.toISOString().split('T')[0];
-    const savedReviews = localStorage.getItem('weeklyReviews');
-    if (savedReviews) {
-      const reviews: WeeklyReviewData[] = JSON.parse(savedReviews);
-      const existingReview = reviews.find(r => r.weekStart === weekKey);
-      if (existingReview) {
-        setReview(existingReview);
-        setWins(existingReview.wins);
-        setChallenges(existingReview.challenges);
-        setLearnings(existingReview.learnings);
-        setNextWeekFocus(existingReview.nextWeekFocus);
-        setRating(existingReview.rating);
-        return;
-      }
+    const reviews = await getSetting<WeeklyReviewData[]>('weeklyReviews', []);
+    const existingReview = reviews.find(r => r.weekStart === weekKey);
+    if (existingReview) {
+      setReview(existingReview);
+      setWins(existingReview.wins);
+      setChallenges(existingReview.challenges);
+      setLearnings(existingReview.learnings);
+      setNextWeekFocus(existingReview.nextWeekFocus);
+      setRating(existingReview.rating);
+      return;
     }
     
     setReview(null);
@@ -99,7 +97,7 @@ export const WeeklyReview = ({ isOpen, onClose }: WeeklyReviewProps) => {
     setRating(0);
   };
 
-  const handleSaveReview = () => {
+  const handleSaveReview = async () => {
     const weekKey = weekStart.toISOString().split('T')[0];
     const newReview: WeeklyReviewData = {
       weekStart: weekKey,
@@ -112,8 +110,7 @@ export const WeeklyReview = ({ isOpen, onClose }: WeeklyReviewProps) => {
       rating,
     };
 
-    const savedReviews = localStorage.getItem('weeklyReviews');
-    let reviews: WeeklyReviewData[] = savedReviews ? JSON.parse(savedReviews) : [];
+    const reviews = await getSetting<WeeklyReviewData[]>('weeklyReviews', []);
     const existingIdx = reviews.findIndex(r => r.weekStart === weekKey);
     
     if (existingIdx >= 0) {
@@ -122,7 +119,7 @@ export const WeeklyReview = ({ isOpen, onClose }: WeeklyReviewProps) => {
       reviews.push(newReview);
     }
     
-    localStorage.setItem('weeklyReviews', JSON.stringify(reviews));
+    await setSetting('weeklyReviews', reviews);
     setReview(newReview);
     toast.success('Weekly review saved!');
   };

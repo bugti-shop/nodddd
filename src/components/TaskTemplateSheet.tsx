@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -363,10 +363,18 @@ export const TaskTemplateSheet = ({ isOpen, onClose, onSelectTemplate }: TaskTem
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [customTemplates, setCustomTemplates] = useState<TaskTemplate[]>(() => {
-    const saved = localStorage.getItem('customTaskTemplates');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [customTemplates, setCustomTemplates] = useState<TaskTemplate[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load custom templates from IndexedDB
+  useEffect(() => {
+    import('@/utils/settingsStorage').then(({ getSetting }) => {
+      getSetting<TaskTemplate[]>('customTaskTemplates', []).then(templates => {
+        setCustomTemplates(templates);
+        setIsLoaded(true);
+      });
+    });
+  }, []);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(null);
   
@@ -450,14 +458,18 @@ export const TaskTemplateSheet = ({ isOpen, onClose, onSelectTemplate }: TaskTem
     }
 
     setCustomTemplates(updatedTemplates);
-    localStorage.setItem('customTaskTemplates', JSON.stringify(updatedTemplates));
+    import('@/utils/settingsStorage').then(({ setSetting }) => {
+      setSetting('customTaskTemplates', updatedTemplates);
+    });
     setShowCreateDialog(false);
   };
 
   const handleDeleteTemplate = (templateId: string) => {
     const updatedTemplates = customTemplates.filter(t => t.id !== templateId);
     setCustomTemplates(updatedTemplates);
-    localStorage.setItem('customTaskTemplates', JSON.stringify(updatedTemplates));
+    import('@/utils/settingsStorage').then(({ setSetting }) => {
+      setSetting('customTaskTemplates', updatedTemplates);
+    });
   };
 
   const getIcon = (iconName: string) => {

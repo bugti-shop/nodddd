@@ -110,15 +110,17 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      localStorage.setItem('onboardingComplete', 'true');
-      localStorage.setItem('onboardingAnswers', JSON.stringify(answers));
+      const { setSetting } = await import('@/utils/settingsStorage');
+      await setSetting('onboardingComplete', 'true');
+      await setSetting('onboardingAnswers', answers);
       onComplete();
     }
   };
 
   const handleSkip = async () => {
     await triggerHaptic();
-    localStorage.setItem('onboardingComplete', 'skipped');
+    const { setSetting } = await import('@/utils/settingsStorage');
+    await setSetting('onboardingComplete', 'skipped');
     onComplete();
   };
 

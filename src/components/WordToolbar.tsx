@@ -130,30 +130,22 @@ const DEFAULT_TOOLBAR_ORDER: ToolbarItemId[] = [
   'comment', 'link', 'noteLink', 'attachment', 'zoom'
 ];
 
-// Clear any saved order to ensure B I U T 16px order is applied
-if (typeof localStorage !== 'undefined') {
-  localStorage.removeItem(TOOLBAR_ORDER_KEY);
-}
+// Note: Toolbar order is now managed via IndexedDB in ToolbarOrderManager
+// This file uses cached order that gets synced from ToolbarOrderManager
+
+let cachedToolbarOrder: ToolbarItemId[] = [...DEFAULT_TOOLBAR_ORDER];
 
 const getToolbarOrder = (): ToolbarItemId[] => {
-  try {
-    const saved = localStorage.getItem(TOOLBAR_ORDER_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Merge with defaults to include any new items
-      const existing = new Set(parsed);
-      const merged = [...parsed];
-      DEFAULT_TOOLBAR_ORDER.forEach(item => {
-        if (!existing.has(item)) merged.push(item);
-      });
-      return merged;
-    }
-  } catch {}
-  return DEFAULT_TOOLBAR_ORDER;
+  return cachedToolbarOrder;
 };
 
 const saveToolbarOrder = (order: ToolbarItemId[]) => {
-  localStorage.setItem(TOOLBAR_ORDER_KEY, JSON.stringify(order));
+  cachedToolbarOrder = order;
+  // Actual persistence handled by ToolbarOrderManager via IndexedDB
+};
+
+export const setCachedToolbarOrder = (order: ToolbarItemId[]) => {
+  cachedToolbarOrder = order;
 };
 
 // 60+ text colors organized by hue

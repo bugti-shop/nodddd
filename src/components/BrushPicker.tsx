@@ -335,21 +335,23 @@ const BrushPreview = ({
 export const BrushPicker = ({ selectedBrush, onBrushSelect, brushSettings, onSettingsChange, currentColor = '#000000' }: BrushPickerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('sketch-favorite-brushes');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [favorites, setFavorites] = useState<string[]>([]);
+
+  // Load favorites from IndexedDB
+  useEffect(() => {
+    import('@/utils/settingsStorage').then(({ getSetting }) => {
+      getSetting<string[]>('sketch-favorite-brushes', []).then(setFavorites);
+    });
+  }, []);
 
   const toggleFavorite = (brushId: string) => {
     const newFavorites = favorites.includes(brushId)
       ? favorites.filter(id => id !== brushId)
       : [...favorites, brushId];
     setFavorites(newFavorites);
-    localStorage.setItem('sketch-favorite-brushes', JSON.stringify(newFavorites));
+    import('@/utils/settingsStorage').then(({ setSetting }) => {
+      setSetting('sketch-favorite-brushes', newFavorites);
+    });
   };
 
   const handleBrushSelect = (brush: typeof BRUSH_CATEGORIES[0]['brushes'][0], category: string) => {
