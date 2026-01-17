@@ -15,6 +15,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { toast } from 'sonner';
 import { TodoItem } from '@/types/note';
 import { loadTasksFromDB } from '@/utils/taskStorage';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 type SessionType = 'work' | 'shortBreak' | 'longBreak';
 
@@ -77,41 +78,47 @@ const sessionBgColors = {
 };
 
 export const PomodoroTimer = ({ isOpen, onClose }: PomodoroTimerProps) => {
-  const [settings, setSettings] = useState<PomodoroSettings>(() => {
-    const saved = localStorage.getItem('pomodoroSettings');
-    return saved ? JSON.parse(saved) : defaultSettings;
-  });
+  const [settings, setSettings] = useState<PomodoroSettings>(defaultSettings);
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   
   const [sessionType, setSessionType] = useState<SessionType>('work');
-  const [timeRemaining, setTimeRemaining] = useState(settings.workDuration * 60);
+  const [timeRemaining, setTimeRemaining] = useState(defaultSettings.workDuration * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [completedSessions, setCompletedSessions] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [showTaskPicker, setShowTaskPicker] = useState(false);
   const [linkedTask, setLinkedTask] = useState<{ id: string; text: string } | null>(null);
   const [availableTasks, setAvailableTasks] = useState<TodoItem[]>([]);
-  const [taskTimeTracking, setTaskTimeTracking] = useState<TaskTimeTracking[]>(() => {
-    const saved = localStorage.getItem('pomodoroTaskTracking');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [taskTimeTracking, setTaskTimeTracking] = useState<TaskTimeTracking[]>([]);
   const [showGoalSetter, setShowGoalSetter] = useState(false);
   const [selectedTaskForGoal, setSelectedTaskForGoal] = useState<string | null>(null);
   const [goalInputMinutes, setGoalInputMinutes] = useState<number>(60);
   
-  const [todaySessions, setTodaySessions] = useState<PomodoroSession[]>(() => {
-    const saved = localStorage.getItem('pomodoroSessions');
-    if (saved) {
-      const sessions = JSON.parse(saved);
-      const today = new Date().toDateString();
-      return sessions.filter((s: PomodoroSession) => 
-        new Date(s.startTime).toDateString() === today
-      );
-    }
-    return [];
-  });
+  const [todaySessions, setTodaySessions] = useState<PomodoroSession[]>([]);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const sessionStartRef = useRef<Date | null>(null);
+
+  // Load settings from IndexedDB
+  useEffect(() => {
+    const loadSettings = async () => {
+      const savedSettings = await getSetting<PomodoroSettings>('pomodoroSettings', defaultSettings);
+      setSettings(savedSettings);
+      setTimeRemaining(savedSettings.workDuration * 60);
+      
+      const savedTracking = await getSetting<TaskTimeTracking[]>('pomodoroTaskTracking', []);
+      setTaskTimeTracking(savedTracking);
+      
+      const savedSessions = await getSetting<PomodoroSession[]>('pomodoroSessions', []);
+      const today = new Date().toDateString();
+      setTodaySessions(savedSessions.filter((s: PomodoroSession) => 
+        new Date(s.startTime).toDateString() === today
+      ));
+      
+      setIsSettingsLoaded(true);
+    };
+    loadSettings();
+  }, []);
 
   // Load available tasks
   useEffect(() => {
@@ -128,18 +135,24 @@ export const PomodoroTimer = ({ isOpen, onClose }: PomodoroTimerProps) => {
 
   // Save settings
   useEffect(() => {
-    localStorage.setItem('pomodoroSettings', JSON.stringify(settings));
-  }, [settings]);
+    if (isSettingsLoaded) {
+      setSetting('pomodoroSettings', settings);
+    }
+  }, [settings, isSettingsLoaded]);
 
   // Save sessions
   useEffect(() => {
-    localStorage.setItem('pomodoroSessions', JSON.stringify(todaySessions));
-  }, [todaySessions]);
+    if (isSettingsLoaded) {
+      setSetting('pomodoroSessions', todaySessions);
+    }
+  }, [todaySessions, isSettingsLoaded]);
 
   // Save task time tracking
   useEffect(() => {
-    localStorage.setItem('pomodoroTaskTracking', JSON.stringify(taskTimeTracking));
-  }, [taskTimeTracking]);
+    if (isSettingsLoaded) {
+      setSetting('pomodoroTaskTracking', taskTimeTracking);
+    }
+  }, [taskTimeTracking, isSettingsLoaded]);
 
   // Timer logic
   useEffect(() => {

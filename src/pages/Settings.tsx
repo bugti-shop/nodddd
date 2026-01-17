@@ -12,6 +12,7 @@ import { Note } from '@/types/note';
 import { useTranslation } from 'react-i18next';
 import { languages } from '@/i18n';
 import { loadNotesFromDB, saveNotesToDB } from '@/utils/noteStorage';
+import { getSetting, setSetting, getAllSettings, clearAllSettings } from '@/utils/settingsStorage';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,16 +46,19 @@ const Settings = () => {
   const [showThemeDialog, setShowThemeDialog] = useState(false);
   const [showHapticDialog, setShowHapticDialog] = useState(false);
   const [showLanguageDialog, setShowLanguageDialog] = useState(false);
-  const [hapticIntensity, setHapticIntensity] = useState<'off' | 'light' | 'medium' | 'heavy'>(() => {
-    return (localStorage.getItem('haptic_intensity') as 'off' | 'light' | 'medium' | 'heavy') || 'medium';
-  });
+  const [hapticIntensity, setHapticIntensity] = useState<'off' | 'light' | 'medium' | 'heavy'>('medium');
   const [isRestoring, setIsRestoring] = useState(false);
+
+  // Load haptic intensity from IndexedDB
+  useEffect(() => {
+    getSetting<'off' | 'light' | 'medium' | 'heavy'>('haptic_intensity', 'medium').then(setHapticIntensity);
+  }, []);
 
   const currentLanguage = languages.find(l => l.code === i18n.language) || languages[0];
 
-  const handleLanguageChange = (langCode: string) => {
+  const handleLanguageChange = async (langCode: string) => {
     i18n.changeLanguage(langCode);
-    localStorage.setItem('npd_language', langCode);
+    await setSetting('npd_language', langCode);
     const lang = languages.find(l => l.code === langCode);
     toast({ title: t('settings.languageChanged', { language: lang?.nativeName || langCode }) });
     setShowLanguageDialog(false);
@@ -74,9 +78,15 @@ const Settings = () => {
     loadNotes();
   }, []);
 
-  // Check for admin bypass
-  const hasAdminAccess = localStorage.getItem('npd_admin_bypass') === 'true';
-  const hasLocalProAccess = localStorage.getItem('npd_pro_access') === 'true';
+  // Check for admin bypass (using state to avoid sync access)
+  const [hasAdminAccess, setHasAdminAccess] = useState(false);
+  const [hasLocalProAccess, setHasLocalProAccess] = useState(false);
+  
+  useEffect(() => {
+    getSetting<boolean>('npd_admin_bypass', false).then(setHasAdminAccess);
+    getSetting<boolean>('npd_pro_access', false).then(setHasLocalProAccess);
+  }, []);
+  
   const isProUser = isPro || hasAdminAccess || hasLocalProAccess;
 
   // Trial countdown calculation
@@ -603,9 +613,9 @@ const Settings = () => {
             {(['off', 'light', 'medium', 'heavy'] as const).map((intensity) => (
               <button
                 key={intensity}
-                onClick={() => {
+                onClick={async () => {
                   setHapticIntensity(intensity);
-                  localStorage.setItem('haptic_intensity', intensity);
+                  await setSetting('haptic_intensity', intensity);
                   const label = intensity === 'off' ? t('settings.hapticOff') : t(`settings.haptic${intensity.charAt(0).toUpperCase() + intensity.slice(1)}`);
                   toast({ title: t('settings.hapticSet', { intensity: label }) });
                   setShowHapticDialog(false);

@@ -48,6 +48,7 @@ import { toast } from 'sonner';
 import { isToday, isTomorrow, isThisWeek, isBefore, startOfDay, format, isYesterday, subDays } from 'date-fns';
 import { loadTodoItems, saveTodoItems, resolveTaskMediaUrl } from '@/utils/todoItemsStorage';
 import { updateSectionOrder, applyTaskOrder, removeTaskFromOrders } from '@/utils/taskOrderStorage';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 import { ResolvedTaskImage } from '@/components/ResolvedTaskImage';
 import { useResolvedTaskMedia } from '@/hooks/useResolvedTaskMedia';
 import { ResolvedImageDialog } from '@/components/ResolvedImageDialog';
@@ -133,54 +134,62 @@ const Today = () => {
     };
     loadAll();
 
-    const savedFolders = localStorage.getItem('todoFolders');
-    if (savedFolders) {
-      const parsed = JSON.parse(savedFolders);
-      setFolders(parsed.map((f: Folder) => ({ ...f, createdAt: new Date(f.createdAt) })));
-    }
+    // Load settings from IndexedDB
+    const loadSettings = async () => {
+      const savedFolders = await getSetting<Folder[] | null>('todoFolders', null);
+      if (savedFolders) {
+        setFolders(savedFolders.map((f: Folder) => ({ ...f, createdAt: new Date(f.createdAt) })));
+      }
 
-    const savedSections = localStorage.getItem('todoSections');
-    if (savedSections) {
-      const parsed = JSON.parse(savedSections);
-      setSections(parsed.length > 0 ? parsed : defaultSections);
-    }
+      const savedSections = await getSetting<TaskSection[]>('todoSections', []);
+      setSections(savedSections.length > 0 ? savedSections : defaultSections);
 
-    const savedShowCompleted = localStorage.getItem('todoShowCompleted');
-    if (savedShowCompleted !== null) setShowCompleted(JSON.parse(savedShowCompleted));
-    const savedDateFilter = localStorage.getItem('todoDateFilter');
-    if (savedDateFilter) setDateFilter(savedDateFilter as DateFilter);
-    const savedPriorityFilter = localStorage.getItem('todoPriorityFilter');
-    if (savedPriorityFilter) setPriorityFilter(savedPriorityFilter as PriorityFilter);
-    const savedStatusFilter = localStorage.getItem('todoStatusFilter');
-    if (savedStatusFilter) setStatusFilter(savedStatusFilter as StatusFilter);
-    const savedTagFilter = localStorage.getItem('todoTagFilter');
-    if (savedTagFilter) setTagFilter(JSON.parse(savedTagFilter));
-    // Restore saved view mode - persist user's preferred layout
-    const savedViewMode = localStorage.getItem('todoViewMode');
-    if (savedViewMode) setViewMode(savedViewMode as ViewMode);
-    const savedHideDetails = localStorage.getItem('todoHideDetailsOptions');
-    if (savedHideDetails !== null) setHideDetailsOptions(JSON.parse(savedHideDetails));
-    // Restore sort by preference
-    const savedSortBy = localStorage.getItem('todoSortBy');
-    if (savedSortBy) setSortBy(savedSortBy as SortBy);
-    // Restore smart list selection
-    const savedSmartList = localStorage.getItem('todoSmartList');
-    if (savedSmartList) setSmartList(savedSmartList as SmartListType);
-    // Restore selected folder
-    const savedFolderId = localStorage.getItem('todoSelectedFolder');
-    if (savedFolderId) setSelectedFolderId(savedFolderId === 'null' ? null : savedFolderId);
-    // Restore new task options
-    const savedDefaultSection = localStorage.getItem('todoDefaultSectionId');
-    if (savedDefaultSection) setDefaultSectionId(savedDefaultSection || undefined);
-    const savedTaskAddPos = localStorage.getItem('todoTaskAddPosition');
-    if (savedTaskAddPos) setTaskAddPosition(savedTaskAddPos as 'top' | 'bottom');
-    const savedShowStatusBadge = localStorage.getItem('todoShowStatusBadge');
-    if (savedShowStatusBadge !== null) setShowStatusBadge(JSON.parse(savedShowStatusBadge));
-    // Restore compact mode and group by option
-    const savedCompactMode = localStorage.getItem('todoCompactMode');
-    if (savedCompactMode !== null) setCompactMode(JSON.parse(savedCompactMode));
-    const savedGroupByOption = localStorage.getItem('todoGroupByOption');
-    if (savedGroupByOption) setGroupByOption(savedGroupByOption as 'none' | 'section' | 'priority' | 'date');
+      const savedShowCompleted = await getSetting<boolean>('todoShowCompleted', true);
+      setShowCompleted(savedShowCompleted);
+      
+      const savedDateFilter = await getSetting<DateFilter>('todoDateFilter', 'all');
+      setDateFilter(savedDateFilter);
+      
+      const savedPriorityFilter = await getSetting<PriorityFilter>('todoPriorityFilter', 'all');
+      setPriorityFilter(savedPriorityFilter);
+      
+      const savedStatusFilter = await getSetting<StatusFilter>('todoStatusFilter', 'all');
+      setStatusFilter(savedStatusFilter);
+      
+      const savedTagFilter = await getSetting<string[]>('todoTagFilter', []);
+      setTagFilter(savedTagFilter);
+      
+      const savedViewMode = await getSetting<ViewMode>('todoViewMode', 'flat');
+      setViewMode(savedViewMode);
+      
+      const savedHideDetails = await getSetting<HideDetailsOptions>('todoHideDetailsOptions', { hideDateTime: false, hideStatus: false, hideSubtasks: false });
+      setHideDetailsOptions(savedHideDetails);
+      
+      const savedSortBy = await getSetting<SortBy>('todoSortBy', 'date');
+      setSortBy(savedSortBy);
+      
+      const savedSmartList = await getSetting<SmartListType>('todoSmartList', 'all');
+      setSmartList(savedSmartList);
+      
+      const savedFolderId = await getSetting<string | null>('todoSelectedFolder', null);
+      setSelectedFolderId(savedFolderId === 'null' ? null : savedFolderId);
+      
+      const savedDefaultSection = await getSetting<string>('todoDefaultSectionId', '');
+      setDefaultSectionId(savedDefaultSection || undefined);
+      
+      const savedTaskAddPos = await getSetting<'top' | 'bottom'>('todoTaskAddPosition', 'bottom');
+      setTaskAddPosition(savedTaskAddPos);
+      
+      const savedShowStatusBadge = await getSetting<boolean>('todoShowStatusBadge', true);
+      setShowStatusBadge(savedShowStatusBadge);
+      
+      const savedCompactMode = await getSetting<boolean>('todoCompactMode', false);
+      setCompactMode(savedCompactMode);
+      
+      const savedGroupByOption = await getSetting<'none' | 'section' | 'priority' | 'date'>('todoGroupByOption', 'none');
+      setGroupByOption(savedGroupByOption);
+    };
+    loadSettings();
   }, []);
 
   useEffect(() => { 
@@ -191,25 +200,25 @@ const Today = () => {
     });
     window.dispatchEvent(new Event('tasksUpdated'));
   }, [items]);
-  useEffect(() => { localStorage.setItem('todoFolders', JSON.stringify(folders)); }, [folders]);
-  useEffect(() => { localStorage.setItem('todoSections', JSON.stringify(sections)); }, [sections]);
-  useEffect(() => { localStorage.setItem('todoShowCompleted', JSON.stringify(showCompleted)); }, [showCompleted]);
+  useEffect(() => { setSetting('todoFolders', folders); }, [folders]);
+  useEffect(() => { setSetting('todoSections', sections); }, [sections]);
+  useEffect(() => { setSetting('todoShowCompleted', showCompleted); }, [showCompleted]);
   useEffect(() => { 
-    localStorage.setItem('todoDateFilter', dateFilter); 
-    localStorage.setItem('todoPriorityFilter', priorityFilter);
-    localStorage.setItem('todoStatusFilter', statusFilter);
-    localStorage.setItem('todoTagFilter', JSON.stringify(tagFilter));
+    setSetting('todoDateFilter', dateFilter); 
+    setSetting('todoPriorityFilter', priorityFilter);
+    setSetting('todoStatusFilter', statusFilter);
+    setSetting('todoTagFilter', tagFilter);
   }, [dateFilter, priorityFilter, statusFilter, tagFilter]);
-  useEffect(() => { localStorage.setItem('todoViewMode', viewMode); }, [viewMode]);
-  useEffect(() => { localStorage.setItem('todoHideDetailsOptions', JSON.stringify(hideDetailsOptions)); }, [hideDetailsOptions]);
-  useEffect(() => { localStorage.setItem('todoSortBy', sortBy); }, [sortBy]);
-  useEffect(() => { localStorage.setItem('todoSmartList', smartList); }, [smartList]);
-  useEffect(() => { localStorage.setItem('todoSelectedFolder', selectedFolderId || 'null'); }, [selectedFolderId]);
-  useEffect(() => { localStorage.setItem('todoDefaultSectionId', defaultSectionId || ''); }, [defaultSectionId]);
-  useEffect(() => { localStorage.setItem('todoTaskAddPosition', taskAddPosition); }, [taskAddPosition]);
-  useEffect(() => { localStorage.setItem('todoShowStatusBadge', JSON.stringify(showStatusBadge)); }, [showStatusBadge]);
-  useEffect(() => { localStorage.setItem('todoCompactMode', JSON.stringify(compactMode)); }, [compactMode]);
-  useEffect(() => { localStorage.setItem('todoGroupByOption', groupByOption); }, [groupByOption]);
+  useEffect(() => { setSetting('todoViewMode', viewMode); }, [viewMode]);
+  useEffect(() => { setSetting('todoHideDetailsOptions', hideDetailsOptions); }, [hideDetailsOptions]);
+  useEffect(() => { setSetting('todoSortBy', sortBy); }, [sortBy]);
+  useEffect(() => { setSetting('todoSmartList', smartList); }, [smartList]);
+  useEffect(() => { setSetting('todoSelectedFolder', selectedFolderId || 'null'); }, [selectedFolderId]);
+  useEffect(() => { setSetting('todoDefaultSectionId', defaultSectionId || ''); }, [defaultSectionId]);
+  useEffect(() => { setSetting('todoTaskAddPosition', taskAddPosition); }, [taskAddPosition]);
+  useEffect(() => { setSetting('todoShowStatusBadge', showStatusBadge); }, [showStatusBadge]);
+  useEffect(() => { setSetting('todoCompactMode', compactMode); }, [compactMode]);
+  useEffect(() => { setSetting('todoGroupByOption', groupByOption); }, [groupByOption]);
 
   // Start geofencing for location-based reminders
   useEffect(() => {

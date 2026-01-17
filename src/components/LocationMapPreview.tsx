@@ -35,13 +35,17 @@ export const LocationMapPreview = ({
 
   // Check for stored token
   useEffect(() => {
-    const storedToken = localStorage.getItem('mapbox_token');
-    if (storedToken) {
-      setMapboxToken(storedToken);
-    } else {
-      setShowTokenInput(true);
-      setIsLoading(false);
-    }
+    const loadToken = async () => {
+      const { getSetting } = await import('@/utils/settingsStorage');
+      const storedToken = await getSetting<string>('mapbox_token', '');
+      if (storedToken) {
+        setMapboxToken(storedToken);
+      } else {
+        setShowTokenInput(true);
+        setIsLoading(false);
+      }
+    };
+    loadToken();
   }, []);
 
   // Geocode location string to coordinates
@@ -111,9 +115,10 @@ export const LocationMapPreview = ({
     };
   }, [coordinates, mapboxToken, showFullMap]);
 
-  const handleSaveToken = () => {
+  const handleSaveToken = async () => {
     if (mapboxToken.trim()) {
-      localStorage.setItem('mapbox_token', mapboxToken.trim());
+      const { setSetting } = await import('@/utils/settingsStorage');
+      await setSetting('mapbox_token', mapboxToken.trim());
       setShowTokenInput(false);
       setIsLoading(true);
     }
