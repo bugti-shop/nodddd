@@ -73,45 +73,48 @@ const updateStorageEstimate = async (): Promise<void> => {
 // Get current storage health
 export const getStorageHealth = (): StorageHealth => globalHealth;
 
-// Safe storage wrapper - never throws, always gracefully handles errors
+// Safe storage wrapper - uses IndexedDB via settingsStorage
 export const safeStorage = {
-  setItem: (key: string, value: string): boolean => {
+  setItem: async (key: string, value: string): Promise<boolean> => {
     try {
       // Check if we're near quota
       if (globalHealth.percentUsed > 95) {
-        console.warn('Storage nearly full, skipping localStorage write');
+        console.warn('Storage nearly full, skipping write');
         return false;
       }
       
-      localStorage.setItem(key, value);
+      const { setSetting } = await import('@/utils/settingsStorage');
+      await setSetting(key, value);
       return true;
     } catch (e) {
       if (e instanceof Error) {
         if (e.name === 'QuotaExceededError' || e.message.includes('quota')) {
           globalHealth.lastError = 'Storage quota exceeded';
           globalHealth.isHealthy = false;
-          console.warn('Storage quota exceeded - data saved to IndexedDB only');
+          console.warn('Storage quota exceeded');
         }
       }
       return false;
     }
   },
 
-  getItem: (key: string): string | null => {
+  getItem: async (key: string): Promise<string | null> => {
     try {
-      return localStorage.getItem(key);
+      const { getSetting } = await import('@/utils/settingsStorage');
+      return await getSetting<string | null>(key, null);
     } catch (e) {
-      console.warn('Failed to read from localStorage:', e);
+      console.warn('Failed to read from storage:', e);
       return null;
     }
   },
 
-  removeItem: (key: string): boolean => {
+  removeItem: async (key: string): Promise<boolean> => {
     try {
-      localStorage.removeItem(key);
+      const { removeSetting } = await import('@/utils/settingsStorage');
+      await removeSetting(key);
       return true;
     } catch (e) {
-      console.warn('Failed to remove from localStorage:', e);
+      console.warn('Failed to remove from storage:', e);
       return false;
     }
   },
