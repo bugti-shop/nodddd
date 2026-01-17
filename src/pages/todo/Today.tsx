@@ -697,7 +697,6 @@ const Today = () => {
     toast.success(`Updated priority for ${selectedTaskIds.size} task(s)`);
   };
 
-  const convertToNotes = (tasksToConvert: TodoItem[]) => {
   const convertToNotes = async (tasksToConvert: TodoItem[]) => {
     const { loadNotesFromDB, saveNotesToDB } = await import('@/utils/noteStorage');
     const existingNotes = await loadNotesFromDB();

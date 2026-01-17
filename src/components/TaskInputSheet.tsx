@@ -108,14 +108,20 @@ export const TaskInputSheet = ({ isOpen, onClose, onAddTask, folders, selectedFo
   const [showLocationInput, setShowLocationInput] = useState(false);
   const [showEditActions, setShowEditActions] = useState(false);
   const [showTemplateSheet, setShowTemplateSheet] = useState(false);
-  const [actionItems, setActionItems] = useState<ActionItem[]>(() => {
-    const saved = localStorage.getItem('taskInputActions');
-    return saved ? JSON.parse(saved) : defaultActions;
-  });
-  const [savedTags, setSavedTags] = useState<ColoredTag[]>(() => {
-    const saved = localStorage.getItem('savedColoredTags');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [actionItems, setActionItems] = useState<ActionItem[]>(defaultActions);
+  const [savedTags, setSavedTags] = useState<ColoredTag[]>([]);
+  
+  // Load saved actions and tags from IndexedDB
+  useEffect(() => {
+    const loadSavedData = async () => {
+      const { getSetting } = await import('@/utils/settingsStorage');
+      const savedActions = await getSetting<ActionItem[] | null>('taskInputActions', null);
+      if (savedActions) setActionItems(savedActions);
+      const savedTagsData = await getSetting<ColoredTag[] | null>('savedColoredTags', null);
+      if (savedTagsData) setSavedTags(savedTagsData);
+    };
+    loadSavedData();
+  }, []);
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);

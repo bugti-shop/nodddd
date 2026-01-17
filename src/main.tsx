@@ -5,6 +5,10 @@ import "./index.css";
 import "./i18n";
 import { migrateLocalStorageToIndexedDB } from "./utils/settingsStorage";
 import { migrateNotesToIndexedDB } from "./utils/noteStorage";
+import { startBackgroundScheduler } from "./utils/backgroundScheduler";
+import { initializeTaskOrder } from "./utils/taskOrderStorage";
+import { initializeNotificationHistory } from "./types/notificationHistory";
+import { initializeProtectionSettings } from "./utils/noteProtection";
 
 // Simple loading fallback for slow connections - inline styled for instant render
 const LoadingFallback = () => (
@@ -41,7 +45,13 @@ const AppWithMigration = () => {
         await Promise.all([
           migrateLocalStorageToIndexedDB(),
           migrateNotesToIndexedDB(),
+          initializeTaskOrder(),
+          initializeNotificationHistory(),
+          initializeProtectionSettings(),
         ]);
+        
+        // Start background scheduler for automatic task rollovers
+        startBackgroundScheduler();
       } catch (error) {
         console.error('Migration error:', error);
       }

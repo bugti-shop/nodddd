@@ -80,21 +80,22 @@ const Upcoming = () => {
   }, []);
 
   useEffect(() => {
-    loadItems();
-    const savedFolders = localStorage.getItem('todoFolders');
-    if (savedFolders) {
-      const parsed = JSON.parse(savedFolders);
-      setFolders(parsed.map((f: Folder) => ({ ...f, createdAt: new Date(f.createdAt) })));
-    }
+    const loadAll = async () => {
+      await loadItems();
+      const { getSetting } = await import('@/utils/settingsStorage');
+      const savedFolders = await getSetting<Folder[] | null>('todoFolders', null);
+      if (savedFolders) {
+        setFolders(savedFolders.map((f: Folder) => ({ ...f, createdAt: new Date(f.createdAt) })));
+      }
+    };
+    loadAll();
     
     // Real-time updates
     const handleTasksUpdate = () => loadItems();
     window.addEventListener('tasksUpdated', handleTasksUpdate);
-    window.addEventListener('storage', handleTasksUpdate);
     
     return () => {
       window.removeEventListener('tasksUpdated', handleTasksUpdate);
-      window.removeEventListener('storage', handleTasksUpdate);
     };
   }, [loadItems]);
 
@@ -110,11 +111,12 @@ const Upcoming = () => {
     }
   }, [allItems]);
 
-  const handleCreateFolder = (name: string, color: string) => {
+  const handleCreateFolder = async (name: string, color: string) => {
+    const { setSetting } = await import('@/utils/settingsStorage');
     const newFolder: Folder = { id: Date.now().toString(), name, color, isDefault: false, createdAt: new Date() };
     const updatedFolders = [...folders, newFolder];
     setFolders(updatedFolders);
-    localStorage.setItem('todoFolders', JSON.stringify(updatedFolders));
+    await setSetting('todoFolders', updatedFolders);
   };
 
   const handleAddTask = async (task: Omit<TodoItem, 'id' | 'completed'>) => {
