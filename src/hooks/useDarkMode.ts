@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 export type ThemeId = 'light' | 'dark' | 'ocean' | 'forest' | 'sunset' | 'rose' | 'midnight' | 'minimal' | 'nebula' | 'obsidian' | 'graphite' | 'onyx' | 'charcoal';
 
@@ -22,23 +23,31 @@ const allThemeClasses: ThemeId[] = ['light', 'dark', 'ocean', 'forest', 'sunset'
 const darkThemes: ThemeId[] = ['dark', 'ocean', 'forest', 'sunset', 'rose', 'midnight', 'minimal', 'nebula', 'obsidian', 'graphite', 'onyx', 'charcoal'];
 
 export const useDarkMode = () => {
-  const [currentTheme, setCurrentTheme] = useState<ThemeId>(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved && allThemeClasses.includes(saved as ThemeId)) {
-      return saved as ThemeId;
-    }
-    // Migrate from old darkMode setting
-    const oldDarkMode = localStorage.getItem('darkMode');
-    if (oldDarkMode) {
-      return JSON.parse(oldDarkMode) ? 'dark' : 'light';
-    }
-    return 'light';
-  });
+  const [currentTheme, setCurrentTheme] = useState<ThemeId>('light');
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load theme from IndexedDB on mount
+  useEffect(() => {
+    const loadTheme = async () => {
+      const saved = await getSetting<string>('theme', 'light');
+      if (saved && allThemeClasses.includes(saved as ThemeId)) {
+        setCurrentTheme(saved as ThemeId);
+      } else {
+        // Check for old darkMode setting
+        const oldDarkMode = await getSetting<boolean>('darkMode', false);
+        setCurrentTheme(oldDarkMode ? 'dark' : 'light');
+      }
+      setIsLoaded(true);
+    };
+    loadTheme();
+  }, []);
 
   const isDarkMode = currentTheme !== 'light';
 
   useEffect(() => {
-    localStorage.setItem('theme', currentTheme);
+    if (!isLoaded) return;
+    
+    setSetting('theme', currentTheme);
     
     // Remove all theme classes first
     allThemeClasses.forEach(cls => {
@@ -49,7 +58,7 @@ export const useDarkMode = () => {
     if (currentTheme !== 'light') {
       document.documentElement.classList.add(currentTheme);
     }
-  }, [currentTheme]);
+  }, [currentTheme, isLoaded]);
 
   // Cycle through all dark themes on toggle
   const toggleDarkMode = () => {

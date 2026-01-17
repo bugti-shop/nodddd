@@ -76,20 +76,6 @@ const Notes = () => {
         setNotes(loadedNotes);
       } catch (error) {
         console.error('Error loading notes:', error);
-        // Fallback to localStorage
-        const saved = localStorage.getItem('notes');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          setNotes(parsed.map((n: Note) => ({
-            ...n,
-            createdAt: new Date(n.createdAt),
-            updatedAt: new Date(n.updatedAt),
-            voiceRecordings: n.voiceRecordings?.map((r: any) => ({
-              ...r,
-              timestamp: new Date(r.timestamp),
-            })) || [],
-          })));
-        }
       }
     };
     loadNotes();

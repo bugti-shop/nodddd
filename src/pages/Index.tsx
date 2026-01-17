@@ -29,7 +29,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { getSuggestedFolders } from '@/utils/personalization';
 import { triggerHaptic } from '@/utils/haptics';
-import { loadNotesFromDB, saveNoteToDBSingle, deleteNoteFromDB, migrateNotesToIndexedDB } from '@/utils/noteStorage';
+import { loadNotesFromDB, saveNoteToDBSingle, deleteNoteFromDB, migrateNotesToIndexedDB, saveNotesToDB } from '@/utils/noteStorage';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 const Index = () => {
   const { t } = useTranslation();
@@ -56,14 +57,16 @@ const Index = () => {
   // Check onboarding status on mount
   useEffect(() => {
     // Initialize folders from personalized suggestions
-    const loadFolders = () => {
-      const savedFolders = localStorage.getItem('folders');
+    const loadFolders = async () => {
+      const savedFolders = await getSetting<Folder[] | null>('folders', null);
       if (savedFolders) {
-        setFolders(JSON.parse(savedFolders));
+        setFolders(savedFolders.map((f: Folder) => ({
+          ...f,
+          createdAt: new Date(f.createdAt),
+        })));
       } else {
-        const answersStr = localStorage.getItem('onboardingAnswers');
-        if (answersStr) {
-          const answers = JSON.parse(answersStr);
+        const answers = await getSetting<any>('onboardingAnswers', null);
+        if (answers) {
           const suggestedFolders = getSuggestedFolders(answers);
           const initialFolders: Folder[] = suggestedFolders.map((name, index) => ({
             id: `folder-${Date.now()}-${index}`,
@@ -73,7 +76,7 @@ const Index = () => {
             color: ['#3c78f0', '#10b981', '#f59e0b'][index % 3],
           }));
           setFolders(initialFolders);
-          localStorage.setItem('folders', JSON.stringify(initialFolders));
+          setSetting('folders', initialFolders);
         }
       }
     };
@@ -103,7 +106,7 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('folders', JSON.stringify(folders));
+    setSetting('folders', folders);
   }, [folders]);
 
   useEffect(() => {

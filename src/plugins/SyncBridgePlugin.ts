@@ -1,4 +1,5 @@
 import { registerPlugin } from '@capacitor/core';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 /**
  * Capacitor Native Bridge Plugin for NPD Sync Managers
@@ -172,29 +173,29 @@ class SyncBridgeWeb implements SyncBridgePlugin {
     this.loadFromStorage();
   }
 
-  private loadFromStorage() {
+  private async loadFromStorage() {
     try {
-      const cloudSync = localStorage.getItem('npd-cloud-sync-settings');
-      if (cloudSync) this.cloudSyncSettings = JSON.parse(cloudSync);
+      const cloudSync = await getSetting<CloudSyncSettings | null>('npd-cloud-sync-settings', null);
+      if (cloudSync) this.cloudSyncSettings = cloudSync;
 
-      const calendar = localStorage.getItem('npd-calendar-settings');
-      if (calendar) this.calendarSettings = JSON.parse(calendar);
+      const calendar = await getSetting<CalendarSyncSettings | null>('npd-calendar-settings', null);
+      if (calendar) this.calendarSettings = calendar;
 
-      const tokens = localStorage.getItem('npd-integration-tokens');
-      if (tokens) this.tokens = JSON.parse(tokens);
+      const tokens = await getSetting<Record<string, string> | null>('npd-integration-tokens', null);
+      if (tokens) this.tokens = tokens;
 
-      const connections = localStorage.getItem('npd-connections');
-      if (connections) this.connections = JSON.parse(connections);
+      const connections = await getSetting<Record<string, ConnectionStatus> | null>('npd-connections', null);
+      if (connections) this.connections = connections;
     } catch (e) {
       console.warn('Failed to load sync settings from storage:', e);
     }
   }
 
-  private saveToStorage() {
-    localStorage.setItem('npd-cloud-sync-settings', JSON.stringify(this.cloudSyncSettings));
-    localStorage.setItem('npd-calendar-settings', JSON.stringify(this.calendarSettings));
-    localStorage.setItem('npd-integration-tokens', JSON.stringify(this.tokens));
-    localStorage.setItem('npd-connections', JSON.stringify(this.connections));
+  private async saveToStorage() {
+    await setSetting('npd-cloud-sync-settings', this.cloudSyncSettings);
+    await setSetting('npd-calendar-settings', this.calendarSettings);
+    await setSetting('npd-integration-tokens', this.tokens);
+    await setSetting('npd-connections', this.connections);
   }
 
   // Cloud Sync
@@ -204,7 +205,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
 
   async setCloudSyncEnabled(options: { enabled: boolean }): Promise<void> {
     this.cloudSyncSettings.enabled = options.enabled;
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async getCloudSyncSettings(): Promise<CloudSyncSettings> {
@@ -213,16 +214,17 @@ class SyncBridgeWeb implements SyncBridgePlugin {
 
   async setCloudSyncSettings(options: CloudSyncSettings): Promise<void> {
     this.cloudSyncSettings = { ...options };
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async syncNow(): Promise<SyncResult> {
-    localStorage.setItem('npd-last-sync', new Date().toISOString());
+    await setSetting('npd-last-sync', new Date().toISOString());
     return { success: true, message: 'Sync completed (web fallback)', itemsSynced: 0 };
   }
 
   async getLastSyncTime(): Promise<{ timestamp: string | null }> {
-    return { timestamp: localStorage.getItem('npd-last-sync') };
+    const timestamp = await getSetting<string | null>('npd-last-sync', null);
+    return { timestamp };
   }
 
   // Authentication
@@ -236,7 +238,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
 
   async signOut(): Promise<void> {
     this.connections = {};
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async getCurrentUser(): Promise<{ email: string | null; uid: string | null }> {
@@ -250,7 +252,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
 
   async setCalendarSyncEnabled(options: { enabled: boolean }): Promise<void> {
     this.calendarSettings.enabled = options.enabled;
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async getCalendarSettings(): Promise<CalendarSyncSettings> {
@@ -259,7 +261,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
 
   async setCalendarSettings(options: CalendarSyncSettings): Promise<void> {
     this.calendarSettings = { ...options };
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async connectGoogleCalendar(): Promise<{ success: boolean; email?: string; error?: string }> {
@@ -268,7 +270,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
 
   async disconnectGoogleCalendar(): Promise<void> {
     delete this.connections['googleCalendar'];
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async getAvailableCalendars(): Promise<{ calendars: GoogleCalendar[] }> {
@@ -276,7 +278,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
   }
 
   async setSelectedCalendars(options: { calendarIds: string[] }): Promise<void> {
-    localStorage.setItem('npd-selected-calendars', JSON.stringify(options.calendarIds));
+    await setSetting('npd-selected-calendars', options.calendarIds);
   }
 
   async syncCalendarNow(): Promise<SyncResult> {
@@ -287,7 +289,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
   async saveClickUpToken(options: { token: string }): Promise<{ success: boolean }> {
     this.tokens['clickup'] = options.token;
     this.connections['clickup'] = { connected: true, lastSync: new Date().toISOString() };
-    this.saveToStorage();
+    await this.saveToStorage();
     return { success: true };
   }
 
@@ -298,7 +300,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
   async disconnectClickUp(): Promise<void> {
     delete this.tokens['clickup'];
     delete this.connections['clickup'];
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async syncClickUp(): Promise<SyncResult> {

@@ -1,6 +1,8 @@
 // Simple XOR-based encryption for note content
 // This provides obfuscation for hidden notes
 
+import { getSetting, setSetting, removeSetting } from '@/utils/settingsStorage';
+
 const ENCRYPTION_KEY_PREFIX = 'npd_enc_';
 
 // Generate a random encryption key
@@ -13,14 +15,31 @@ const generateKey = (): string => {
   return key;
 };
 
+// In-memory cache for encryption keys
+const keyCache: Map<string, string> = new Map();
+
 // Get or create encryption key for a note
-export const getEncryptionKey = (noteId: string): string => {
-  const storedKey = localStorage.getItem(`${ENCRYPTION_KEY_PREFIX}${noteId}`);
-  if (storedKey) return storedKey;
+export const getEncryptionKey = async (noteId: string): Promise<string> => {
+  // Check cache first
+  if (keyCache.has(noteId)) {
+    return keyCache.get(noteId)!;
+  }
+
+  const storedKey = await getSetting<string | null>(`${ENCRYPTION_KEY_PREFIX}${noteId}`, null);
+  if (storedKey) {
+    keyCache.set(noteId, storedKey);
+    return storedKey;
+  }
   
   const newKey = generateKey();
-  localStorage.setItem(`${ENCRYPTION_KEY_PREFIX}${noteId}`, newKey);
+  await setSetting(`${ENCRYPTION_KEY_PREFIX}${noteId}`, newKey);
+  keyCache.set(noteId, newKey);
   return newKey;
+};
+
+// Synchronous version using cache (for hot paths)
+export const getEncryptionKeySync = (noteId: string): string | null => {
+  return keyCache.get(noteId) || null;
 };
 
 // XOR encrypt/decrypt (same operation for both)
@@ -33,17 +52,17 @@ const xorCrypt = (text: string, key: string): string => {
 };
 
 // Encrypt note content
-export const encryptContent = (content: string, noteId: string): string => {
-  const key = getEncryptionKey(noteId);
+export const encryptContent = async (content: string, noteId: string): Promise<string> => {
+  const key = await getEncryptionKey(noteId);
   const encrypted = xorCrypt(content, key);
   // Base64 encode for safe storage
   return btoa(unescape(encodeURIComponent(encrypted)));
 };
 
 // Decrypt note content
-export const decryptContent = (encryptedContent: string, noteId: string): string => {
+export const decryptContent = async (encryptedContent: string, noteId: string): Promise<string> => {
   try {
-    const key = getEncryptionKey(noteId);
+    const key = await getEncryptionKey(noteId);
     const decoded = decodeURIComponent(escape(atob(encryptedContent)));
     return xorCrypt(decoded, key);
   } catch {
@@ -63,6 +82,7 @@ export const isEncrypted = (content: string): boolean => {
 };
 
 // Remove encryption key when note is unhidden
-export const removeEncryptionKey = (noteId: string): void => {
-  localStorage.removeItem(`${ENCRYPTION_KEY_PREFIX}${noteId}`);
+export const removeEncryptionKey = async (noteId: string): Promise<void> => {
+  keyCache.delete(noteId);
+  await removeSetting(`${ENCRYPTION_KEY_PREFIX}${noteId}`);
 };

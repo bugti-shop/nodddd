@@ -70,8 +70,7 @@ export const loadNotesFromDB = async (): Promise<Note[]> => {
     });
   } catch (error) {
     console.error('Error loading notes from IndexedDB:', error);
-    // Fallback to localStorage
-    return loadNotesFromLocalStorage();
+    return [];
   }
 };
 
@@ -156,53 +155,41 @@ export const deleteNoteFromDB = async (noteId: string): Promise<void> => {
   }
 };
 
-// Fallback localStorage functions
-const loadNotesFromLocalStorage = (): Note[] => {
-  try {
-    const saved = localStorage.getItem('notes');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed.map((n: Note) => ({
-        ...n,
-        createdAt: new Date(n.createdAt),
-        updatedAt: new Date(n.updatedAt),
-        voiceRecordings: n.voiceRecordings?.map((r: any) => ({
-          ...r,
-          timestamp: new Date(r.timestamp),
-        })) || [],
-      }));
-    }
-  } catch (error) {
-    console.error('Error loading notes from localStorage:', error);
-  }
-  return [];
-};
-
-// Migration from localStorage to IndexedDB
+// Migration from localStorage to IndexedDB (one-time)
 export const migrateNotesToIndexedDB = async (): Promise<boolean> => {
+  const { getSetting, setSetting } = await import('@/utils/settingsStorage');
   try {
-    const migrated = localStorage.getItem('notes_migrated_to_indexeddb');
-    if (migrated === 'true') {
-      // Already migrated - clear localStorage to free space
-      try {
-        localStorage.removeItem('notes');
-      } catch {}
-      return false;
-    }
+    const migrated = await getSetting('notes_migrated_to_indexeddb', false);
+    if (migrated) return false;
 
-    const notes = loadNotesFromLocalStorage();
-    if (notes.length > 0) {
-      await saveNotesToDB(notes);
-      localStorage.setItem('notes_migrated_to_indexeddb', 'true');
-      // CRITICAL: Remove notes from localStorage to free quota
-      try {
-        localStorage.removeItem('notes');
-      } catch {}
-      console.log(`Migrated ${notes.length} notes to IndexedDB and freed localStorage`);
+    // Check if there are notes in old localStorage (for backward compatibility during migration)
+    let oldNotes: Note[] = [];
+    try {
+      const saved = localStorage.getItem('notes');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        oldNotes = parsed.map((n: Note) => ({
+          ...n,
+          createdAt: new Date(n.createdAt),
+          updatedAt: new Date(n.updatedAt),
+          voiceRecordings: n.voiceRecordings?.map((r: any) => ({
+            ...r,
+            timestamp: new Date(r.timestamp),
+          })) || [],
+        }));
+      }
+    } catch {}
+
+    if (oldNotes.length > 0) {
+      await saveNotesToDB(oldNotes);
+      await setSetting('notes_migrated_to_indexeddb', true);
+      // Clear localStorage
+      try { localStorage.removeItem('notes'); } catch {}
+      console.log(`Migrated ${oldNotes.length} notes to IndexedDB`);
       return true;
     }
     
-    localStorage.setItem('notes_migrated_to_indexeddb', 'true');
+    await setSetting('notes_migrated_to_indexeddb', true);
     return false;
   } catch (error) {
     console.error('Migration failed:', error);

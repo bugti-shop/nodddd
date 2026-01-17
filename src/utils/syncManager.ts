@@ -1,4 +1,6 @@
-// Simplified sync manager for local storage only (no Supabase)
+// Simplified sync manager using IndexedDB storage
+import { getSetting, setSetting } from '@/utils/settingsStorage';
+
 const STORAGE_KEYS = {
   NOTES: 'nota-notes',
   FOLDERS: 'nota-folders',
@@ -9,8 +11,12 @@ const STORAGE_KEYS = {
 
 class SyncManager {
   private static instance: SyncManager;
+  private syncEnabled: boolean | null = null;
+  private lastSyncTime: Date | null = null;
 
-  private constructor() {}
+  private constructor() {
+    this.loadSettings();
+  }
 
   static getInstance(): SyncManager {
     if (!SyncManager.instance) {
@@ -19,21 +25,29 @@ class SyncManager {
     return SyncManager.instance;
   }
 
-  isSyncEnabled(): boolean {
-    return localStorage.getItem(STORAGE_KEYS.SYNC_ENABLED) === 'true';
+  private async loadSettings() {
+    this.syncEnabled = await getSetting(STORAGE_KEYS.SYNC_ENABLED, false);
+    const lastSync = await getSetting<string | null>(STORAGE_KEYS.LAST_SYNC, null);
+    this.lastSyncTime = lastSync ? new Date(lastSync) : null;
   }
 
-  setSyncEnabled(enabled: boolean) {
-    localStorage.setItem(STORAGE_KEYS.SYNC_ENABLED, enabled.toString());
+  isSyncEnabled(): boolean {
+    return this.syncEnabled ?? false;
+  }
+
+  async setSyncEnabled(enabled: boolean) {
+    this.syncEnabled = enabled;
+    await setSetting(STORAGE_KEYS.SYNC_ENABLED, enabled);
   }
 
   getLastSyncTime(): Date | null {
-    const lastSync = localStorage.getItem(STORAGE_KEYS.LAST_SYNC);
-    return lastSync ? new Date(lastSync) : null;
+    return this.lastSyncTime;
   }
 
-  private setLastSyncTime() {
-    localStorage.setItem(STORAGE_KEYS.LAST_SYNC, new Date().toISOString());
+  private async setLastSyncTime() {
+    const now = new Date();
+    this.lastSyncTime = now;
+    await setSetting(STORAGE_KEYS.LAST_SYNC, now.toISOString());
   }
 
   async isAuthenticated(): Promise<boolean> {
@@ -46,12 +60,12 @@ class SyncManager {
     conflicts?: number;
   }> {
     // Local only - no sync needed
-    this.setLastSyncTime();
+    await this.setLastSyncTime();
     return { success: true };
   }
 
   async updateProfileSyncTime(): Promise<void> {
-    this.setLastSyncTime();
+    await this.setLastSyncTime();
   }
 }
 
