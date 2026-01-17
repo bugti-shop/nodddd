@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { getSuggestedFolders } from '@/utils/personalization';
 import { triggerHaptic } from '@/utils/haptics';
+import { loadNotesFromDB, saveNoteToDBSingle, deleteNoteFromDB, migrateNotesToIndexedDB } from '@/utils/noteStorage';
 
 const Index = () => {
   const { t } = useTranslation();
@@ -85,25 +86,21 @@ const Index = () => {
     return () => window.removeEventListener('foldersUpdated', handleFoldersUpdated);
   }, []);
 
+  // Load notes from IndexedDB (unified storage)
   useEffect(() => {
-    const saved = localStorage.getItem('notes');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setNotes(parsed.map((n: Note) => ({
-        ...n,
-        createdAt: new Date(n.createdAt),
-        updatedAt: new Date(n.updatedAt),
-        voiceRecordings: n.voiceRecordings?.map((r: any) => ({
-          ...r,
-          timestamp: new Date(r.timestamp),
-        })) || [],
-      })));
-    }
+    const loadNotes = async () => {
+      try {
+        // Ensure migration happens first
+        await migrateNotesToIndexedDB();
+        // Load from IndexedDB
+        const loadedNotes = await loadNotesFromDB();
+        setNotes(loadedNotes);
+      } catch (error) {
+        console.error('Error loading notes:', error);
+      }
+    };
+    loadNotes();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('notes', JSON.stringify(notes));
-  }, [notes]);
 
   useEffect(() => {
     localStorage.setItem('folders', JSON.stringify(folders));
