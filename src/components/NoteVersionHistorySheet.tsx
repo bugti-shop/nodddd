@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -30,6 +31,8 @@ export const NoteVersionHistorySheet = ({
   noteId,
   onRestore,
 }: NoteVersionHistorySheetProps) => {
+  const [versions, setVersions] = useState<NoteVersion[]>([]);
+
   // Hardware back button support - use 'sheet' priority to close sheet before navigation
   useHardwareBackButton({
     onBack: onClose,
@@ -37,7 +40,12 @@ export const NoteVersionHistorySheet = ({
     priority: 'sheet',
   });
 
-  const versions = getNoteVersions(noteId);
+  // Load versions from IndexedDB
+  useEffect(() => {
+    if (isOpen && noteId) {
+      getNoteVersions(noteId).then(setVersions);
+    }
+  }, [isOpen, noteId]);
 
   const handleRestore = (version: NoteVersion) => {
     const restored = restoreNoteVersion(version);

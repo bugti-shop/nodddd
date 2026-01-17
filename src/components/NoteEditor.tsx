@@ -161,14 +161,17 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
   const backlinks = note ? findBacklinks(note, allNotes) : [];
 
   useEffect(() => {
-    const savedFolders = localStorage.getItem('folders');
-    if (savedFolders) {
-      const parsed = JSON.parse(savedFolders);
-      setFolders(parsed.map((f: Folder) => ({
-        ...f,
-        createdAt: new Date(f.createdAt),
-      })));
-    }
+    const loadFolders = async () => {
+      const { getSetting } = await import('@/utils/settingsStorage');
+      const savedFolders = await getSetting<Folder[] | null>('folders', null);
+      if (savedFolders) {
+        setFolders(savedFolders.map((f: Folder) => ({
+          ...f,
+          createdAt: new Date(f.createdAt),
+        })));
+      }
+    };
+    loadFolders();
   }, []);
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { Note } from '@/types/note';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 export interface NoteVersion {
   id: string;
@@ -12,20 +13,16 @@ export interface NoteVersion {
 const STORAGE_KEY = 'note_versions';
 const MAX_VERSIONS_PER_NOTE = 50;
 
-export const getNoteVersions = (noteId: string): NoteVersion[] => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return [];
-  
-  const allVersions: NoteVersion[] = JSON.parse(stored);
+export const getNoteVersions = async (noteId: string): Promise<NoteVersion[]> => {
+  const allVersions = await getSetting<NoteVersion[]>(STORAGE_KEY, []);
   return allVersions
     .filter(v => v.noteId === noteId)
     .map(v => ({ ...v, timestamp: new Date(v.timestamp) }))
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 };
 
-export const saveNoteVersion = (note: Note, changeType: 'create' | 'edit' | 'restore' = 'edit'): void => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  const allVersions: NoteVersion[] = stored ? JSON.parse(stored) : [];
+export const saveNoteVersion = async (note: Note, changeType: 'create' | 'edit' | 'restore' = 'edit'): Promise<void> => {
+  const allVersions = await getSetting<NoteVersion[]>(STORAGE_KEY, []);
   
   // Check if content actually changed
   const existingVersions = allVersions.filter(v => v.noteId === note.id);
@@ -55,9 +52,9 @@ export const saveNoteVersion = (note: Note, changeType: 'create' | 'edit' | 'res
     const toRemove = noteVersions.slice(MAX_VERSIONS_PER_NOTE);
     const toRemoveIds = new Set(toRemove.map(v => v.id));
     const filtered = allVersions.filter(v => !toRemoveIds.has(v.id));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    await setSetting(STORAGE_KEY, filtered);
   } else {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allVersions));
+    await setSetting(STORAGE_KEY, allVersions);
   }
 };
 
@@ -68,13 +65,10 @@ export const restoreNoteVersion = (version: NoteVersion): Partial<Note> => {
   };
 };
 
-export const deleteNoteVersions = (noteId: string): void => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return;
-  
-  const allVersions: NoteVersion[] = JSON.parse(stored);
+export const deleteNoteVersions = async (noteId: string): Promise<void> => {
+  const allVersions = await getSetting<NoteVersion[]>(STORAGE_KEY, []);
   const filtered = allVersions.filter(v => v.noteId !== noteId);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  await setSetting(STORAGE_KEY, filtered);
 };
 
 export const formatVersionTimestamp = (date: Date): string => {

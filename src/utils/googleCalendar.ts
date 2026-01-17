@@ -1,4 +1,5 @@
 import { TodoItem } from '@/types/note';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 // Stub implementation for Google Calendar integration
 // This can be expanded with actual Google Calendar API integration
@@ -11,25 +12,25 @@ export interface GoogleCalendar {
 }
 
 export const getAccessToken = async (): Promise<string | null> => {
-  // Get stored access token from Supabase session or localStorage
-  const token = localStorage.getItem('googleAccessToken');
+  // Get stored access token from IndexedDB
+  const token = await getSetting<string | null>('googleAccessToken', null);
   return token;
 };
 
 export const isGoogleCalendarEnabled = async (): Promise<boolean> => {
   // Check if Google Calendar integration is enabled
-  const enabled = localStorage.getItem('googleCalendarEnabled');
-  return enabled === 'true';
+  const enabled = await getSetting<boolean>('googleCalendarEnabled', false);
+  return enabled;
 };
 
 export const enableGoogleCalendar = async (): Promise<boolean> => {
   // Enable Google Calendar integration
-  localStorage.setItem('googleCalendarEnabled', 'true');
+  await setSetting('googleCalendarEnabled', true);
   return true;
 };
 
 export const disableGoogleCalendar = async (): Promise<void> => {
-  localStorage.setItem('googleCalendarEnabled', 'false');
+  await setSetting('googleCalendarEnabled', false);
 };
 
 export const createCalendarEvent = async (task: TodoItem): Promise<string | null> => {
