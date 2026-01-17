@@ -71,18 +71,19 @@ const FONT_FAMILIES = [
   { value: 'fantasy', label: 'Fantasy' },
 ];
 
-const loadCustomColors = (): string[] => {
+const loadCustomColors = async (): Promise<string[]> => {
   try {
-    const saved = localStorage.getItem('sketch-custom-colors');
-    return saved ? JSON.parse(saved) : [];
+    const { getSetting } = await import('@/utils/settingsStorage');
+    return getSetting<string[]>('sketch-custom-colors', []);
   } catch {
     return [];
   }
 };
 
-const saveCustomColors = (colors: string[]) => {
+const saveCustomColors = async (colors: string[]) => {
   try {
-    localStorage.setItem('sketch-custom-colors', JSON.stringify(colors));
+    const { setSetting } = await import('@/utils/settingsStorage');
+    await setSetting('sketch-custom-colors', colors);
   } catch (error) {
     console.error('Failed to save custom colors:', error);
   }
@@ -108,7 +109,7 @@ export const SketchEditor = ({ content, onChange }: SketchEditorProps) => {
   const [lastPos, setLastPos] = useState<{ x: number; y: number } | null>(null);
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
   const [tempCanvas, setTempCanvas] = useState<ImageData | null>(null);
-  const [customColors, setCustomColors] = useState<string[]>(loadCustomColors());
+  const [customColors, setCustomColors] = useState<string[]>([]);
   const [newColor, setNewColor] = useState('#000000');
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);

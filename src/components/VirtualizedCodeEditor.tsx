@@ -76,14 +76,27 @@ export const VirtualizedCodeEditor = ({
   const [isHighlighting, setIsHighlighting] = useState(false);
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 100 });
   const [currentLine, setCurrentLine] = useState(1);
-  const [fontSize, setFontSize] = useState(() => {
-    const saved = localStorage.getItem('code-editor-font-size');
-    return saved ? parseInt(saved, 10) : DEFAULT_FONT_SIZE;
-  });
+  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
+  const [isLoaded, setIsLoaded] = useState(false);
 
+  // Load font size from IndexedDB
   useEffect(() => {
-    localStorage.setItem('code-editor-font-size', String(fontSize));
-  }, [fontSize]);
+    import('@/utils/settingsStorage').then(({ getSetting }) => {
+      getSetting<number>('code-editor-font-size', DEFAULT_FONT_SIZE).then(size => {
+        setFontSize(size);
+        setIsLoaded(true);
+      });
+    });
+  }, []);
+
+  // Save font size to IndexedDB
+  useEffect(() => {
+    if (isLoaded) {
+      import('@/utils/settingsStorage').then(({ setSetting }) => {
+        setSetting('code-editor-font-size', fontSize);
+      });
+    }
+  }, [fontSize, isLoaded]);
 
   const lineHeight = useMemo(() => Math.round(fontSize * 1.6), [fontSize]);
   const fontSizePx = `${fontSize}px`;

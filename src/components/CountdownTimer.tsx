@@ -15,6 +15,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { toast } from 'sonner';
 import { format, differenceInSeconds, addDays, addHours, addMinutes, addWeeks } from 'date-fns';
 import { ClockTimePicker } from './ClockTimePicker';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 interface CountdownItem {
   id: string;
@@ -33,17 +34,8 @@ interface CountdownTimerProps {
 type QuickDuration = '5m' | '15m' | '30m' | '1h' | '2h' | '1d' | '1w';
 
 export const CountdownTimer = ({ isOpen, onClose }: CountdownTimerProps) => {
-  const [countdowns, setCountdowns] = useState<CountdownItem[]>(() => {
-    const saved = localStorage.getItem('countdowns');
-    if (saved) {
-      return JSON.parse(saved).map((c: any) => ({
-        ...c,
-        targetDate: new Date(c.targetDate),
-        createdAt: new Date(c.createdAt),
-      }));
-    }
-    return [];
-  });
+  const [countdowns, setCountdowns] = useState<CountdownItem[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCountdownName, setNewCountdownName] = useState('');
@@ -59,10 +51,25 @@ export const CountdownTimer = ({ isOpen, onClose }: CountdownTimerProps) => {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Save countdowns
+  // Load countdowns from IndexedDB
   useEffect(() => {
-    localStorage.setItem('countdowns', JSON.stringify(countdowns));
-  }, [countdowns]);
+    getSetting<any[]>('countdowns', []).then(saved => {
+      const hydrated = saved.map((c: any) => ({
+        ...c,
+        targetDate: new Date(c.targetDate),
+        createdAt: new Date(c.createdAt),
+      }));
+      setCountdowns(hydrated);
+      setIsLoaded(true);
+    });
+  }, []);
+
+  // Save countdowns to IndexedDB
+  useEffect(() => {
+    if (isLoaded) {
+      setSetting('countdowns', countdowns);
+    }
+  }, [countdowns, isLoaded]);
 
   // Update current time every second
   useEffect(() => {

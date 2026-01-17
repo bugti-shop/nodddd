@@ -32,19 +32,15 @@ import { cn } from '@/lib/utils';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { TableEditor, generateTableHTML, TableContextMenu, TableStyle } from './TableEditor';
 import { WordToolbar } from './WordToolbar';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 // Favorites storage helpers
 const FAVORITES_KEY = 'note-font-favorites';
-const getFavorites = (): string[] => {
-  try {
-    const stored = localStorage.getItem(FAVORITES_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
+const getFavorites = async (): Promise<string[]> => {
+  return getSetting<string[]>(FAVORITES_KEY, []);
 };
 const saveFavorites = (favorites: string[]) => {
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
+  setSetting(FAVORITES_KEY, favorites);
 };
 
 interface RichTextEditorProps {
@@ -366,7 +362,7 @@ export const RichTextEditor = ({
   const [historyIndex, setHistoryIndex] = useState(0);
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [fontSizePickerOpen, setFontSizePickerOpen] = useState(false);
-  const [favoriteFonts, setFavoriteFonts] = useState<string[]>(() => getFavorites());
+  const [favoriteFonts, setFavoriteFonts] = useState<string[]>([]);
   const [zoom, setZoom] = useState(100);
   const [textDirection, setTextDirection] = useState<'ltr' | 'rtl'>('ltr');
   

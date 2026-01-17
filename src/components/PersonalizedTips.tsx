@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Lightbulb, X } from 'lucide-react';
 import { getPersonalizedRecommendations } from '@/utils/personalization';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 export const PersonalizedTips = () => {
   const [tips, setTips] = useState<string[]>([]);
@@ -8,17 +9,19 @@ export const PersonalizedTips = () => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    const answersStr = localStorage.getItem('onboardingAnswers');
-    const dismissed = localStorage.getItem('tipsDismissed');
+    const loadTips = async () => {
+      const answers = await getSetting<Record<number, string> | null>('onboardingAnswers', null);
+      const dismissed = await getSetting<boolean>('tipsDismissed', false);
 
-    if (answersStr && !dismissed) {
-      const answers = JSON.parse(answersStr);
-      const recommendations = getPersonalizedRecommendations(answers);
-      if (recommendations.length > 0) {
-        setTips(recommendations);
-        setIsVisible(true);
+      if (answers && !dismissed) {
+        const recommendations = getPersonalizedRecommendations(answers);
+        if (recommendations.length > 0) {
+          setTips(recommendations);
+          setIsVisible(true);
+        }
       }
-    }
+    };
+    loadTips();
   }, []);
 
   const handleNext = () => {
@@ -31,7 +34,7 @@ export const PersonalizedTips = () => {
 
   const handleDismiss = () => {
     setIsVisible(false);
-    localStorage.setItem('tipsDismissed', 'true');
+    setSetting('tipsDismissed', true);
   };
 
   if (!isVisible || tips.length === 0) return null;

@@ -7,6 +7,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useHardwareBackButton } from '@/hooks/useHardwareBackButton';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 
 export type ToolbarItemId = 
   | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'subscript' | 'superscript' 
@@ -63,14 +64,13 @@ const TOOLBAR_ITEM_LABELS: Record<ToolbarItemId, string> = {
   zoom: 'Zoom Controls',
 };
 
-export const getToolbarOrder = (): ToolbarItemId[] => {
+export const getToolbarOrder = async (): Promise<ToolbarItemId[]> => {
   try {
-    const saved = localStorage.getItem(TOOLBAR_ORDER_KEY);
+    const saved = await getSetting<ToolbarItemId[] | null>(TOOLBAR_ORDER_KEY, null);
     if (saved) {
-      const parsed = JSON.parse(saved) as ToolbarItemId[];
       // Merge with defaults to include any new items
-      const existing = new Set(parsed);
-      const merged = [...parsed];
+      const existing = new Set(saved);
+      const merged = [...saved];
       DEFAULT_TOOLBAR_ORDER.forEach(item => {
         if (!existing.has(item)) merged.push(item);
       });
@@ -80,8 +80,8 @@ export const getToolbarOrder = (): ToolbarItemId[] => {
   return [...DEFAULT_TOOLBAR_ORDER];
 };
 
-export const saveToolbarOrder = (order: ToolbarItemId[]) => {
-  localStorage.setItem(TOOLBAR_ORDER_KEY, JSON.stringify(order));
+export const saveToolbarOrder = async (order: ToolbarItemId[]) => {
+  await setSetting(TOOLBAR_ORDER_KEY, order);
 };
 
 interface ToolbarOrderManagerProps {
@@ -212,8 +212,12 @@ export const ToolbarOrderManager = ({
 
 // Custom hook for managing toolbar order
 export const useToolbarOrder = () => {
-  const [order, setOrder] = useState<ToolbarItemId[]>(() => getToolbarOrder());
+  const [order, setOrder] = useState<ToolbarItemId[]>(DEFAULT_TOOLBAR_ORDER);
   const [isManagerOpen, setIsManagerOpen] = useState(false);
+
+  useEffect(() => {
+    getToolbarOrder().then(setOrder);
+  }, []);
 
   const updateOrder = (newOrder: ToolbarItemId[]) => {
     setOrder(newOrder);

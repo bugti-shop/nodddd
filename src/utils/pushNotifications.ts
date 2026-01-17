@@ -1,5 +1,6 @@
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
+import { setSetting } from '@/utils/settingsStorage';
 
 export class PushNotificationManager {
   private static instance: PushNotificationManager;
@@ -38,10 +39,10 @@ export class PushNotificationManager {
   }
 
   async registerListeners(): Promise<void> {
-    await PushNotifications.addListener('registration', (token) => {
+    await PushNotifications.addListener('registration', async (token) => {
       console.log('Push registration success, token: ' + token.value);
-      // Store token for server-side push notifications
-      localStorage.setItem('pushToken', token.value);
+      // Store token in IndexedDB for server-side push notifications
+      await setSetting('pushToken', token.value);
     });
 
     await PushNotifications.addListener('registrationError', (err) => {
