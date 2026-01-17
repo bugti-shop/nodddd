@@ -11,7 +11,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { TodoLayout } from './TodoLayout';
-import { loadTasksFromDB } from '@/utils/taskStorage';
+import { loadTasksFromDB, saveTasksToDB } from '@/utils/taskStorage';
+import { getSetting, setSetting, getAllSettings } from '@/utils/settingsStorage';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   AlertDialog,
@@ -261,10 +262,14 @@ const TodoSettings = () => {
   };
 
 
-  const handleBackupData = () => {
-    const todoItems = localStorage.getItem('todoItems') || '[]';
-    const todoFolders = localStorage.getItem('todoFolders') || '[]';
-    const backup = { todoItems, todoFolders, timestamp: new Date().toISOString() };
+  const handleBackupData = async () => {
+    const tasks = await loadTasksFromDB();
+    const folders = await getSetting('todoFolders', []);
+    const backup = { 
+      todoItems: JSON.stringify(tasks), 
+      todoFolders: JSON.stringify(folders), 
+      timestamp: new Date().toISOString() 
+    };
     const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -282,15 +287,21 @@ const TodoSettings = () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/json';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = async (event) => {
           try {
             const backup = JSON.parse(event.target?.result as string);
-            if (backup.todoItems) localStorage.setItem('todoItems', backup.todoItems);
-            if (backup.todoFolders) localStorage.setItem('todoFolders', backup.todoFolders);
+            if (backup.todoItems) {
+              const tasks = JSON.parse(backup.todoItems);
+              await saveTasksToDB(tasks);
+            }
+            if (backup.todoFolders) {
+              const folders = JSON.parse(backup.todoFolders);
+              await setSetting('todoFolders', folders);
+            }
             toast({ title: t('settings.dataRestored') });
             setTimeout(() => window.location.reload(), 1000);
           } catch (error) {
@@ -304,10 +315,12 @@ const TodoSettings = () => {
     setShowRestoreDialog(false);
   };
 
-  const handleDownloadData = () => {
+  const handleDownloadData = async () => {
+    const tasks = await loadTasksFromDB();
+    const folders = await getSetting('todoFolders', []);
     const allData = {
-      todoItems: localStorage.getItem('todoItems'),
-      todoFolders: localStorage.getItem('todoFolders'),
+      todoItems: tasks,
+      todoFolders: folders,
       timestamp: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });

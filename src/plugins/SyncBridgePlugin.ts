@@ -314,7 +314,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
   async saveNotionToken(options: { token: string }): Promise<{ success: boolean }> {
     this.tokens['notion'] = options.token;
     this.connections['notion'] = { connected: true, lastSync: new Date().toISOString() };
-    this.saveToStorage();
+    await this.saveToStorage();
     return { success: true };
   }
 
@@ -325,7 +325,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
   async disconnectNotion(): Promise<void> {
     delete this.tokens['notion'];
     delete this.connections['notion'];
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async syncNotion(): Promise<SyncResult> {
@@ -339,7 +339,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
   async saveHubSpotToken(options: { token: string }): Promise<{ success: boolean }> {
     this.tokens['hubspot'] = options.token;
     this.connections['hubspot'] = { connected: true, lastSync: new Date().toISOString() };
-    this.saveToStorage();
+    await this.saveToStorage();
     return { success: true };
   }
 
@@ -350,7 +350,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
   async disconnectHubSpot(): Promise<void> {
     delete this.tokens['hubspot'];
     delete this.connections['hubspot'];
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async syncHubSpot(): Promise<SyncResult> {
@@ -367,7 +367,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
 
   async disconnectTickTick(): Promise<void> {
     delete this.connections['ticktick'];
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async getTickTickConnectionStatus(): Promise<ConnectionStatus> {
@@ -382,14 +382,14 @@ class SyncBridgeWeb implements SyncBridgePlugin {
   async saveTodoistToken(options: { token: string }): Promise<{ success: boolean }> {
     this.tokens['todoist'] = options.token;
     this.connections['todoist'] = { connected: true, lastSync: new Date().toISOString() };
-    this.saveToStorage();
+    await this.saveToStorage();
     return { success: true };
   }
 
   async disconnectTodoist(): Promise<void> {
     delete this.tokens['todoist'];
     delete this.connections['todoist'];
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async getTodoistConnectionStatus(): Promise<ConnectionStatus> {
@@ -410,7 +410,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
 
   async disconnectGoogleTasks(): Promise<void> {
     delete this.connections['googleTasks'];
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async getGoogleTasksConnectionStatus(): Promise<ConnectionStatus> {
@@ -428,7 +428,7 @@ class SyncBridgeWeb implements SyncBridgePlugin {
 
   async disconnectMicrosoftTodo(): Promise<void> {
     delete this.connections['microsoftTodo'];
-    this.saveToStorage();
+    await this.saveToStorage();
   }
 
   async getMicrosoftTodoConnectionStatus(): Promise<ConnectionStatus> {

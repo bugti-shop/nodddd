@@ -1,8 +1,10 @@
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import "./i18n";
+import { migrateLocalStorageToIndexedDB } from "./utils/settingsStorage";
+import { migrateNotesToIndexedDB } from "./utils/noteStorage";
 
 // Simple loading fallback for slow connections - inline styled for instant render
 const LoadingFallback = () => (
@@ -28,10 +30,37 @@ const LoadingFallback = () => (
   </div>
 );
 
+// Wrapper component that handles migration before rendering the app
+const AppWithMigration = () => {
+  const [isMigrated, setIsMigrated] = useState(false);
+
+  useEffect(() => {
+    const runMigrations = async () => {
+      try {
+        // Run migrations in parallel
+        await Promise.all([
+          migrateLocalStorageToIndexedDB(),
+          migrateNotesToIndexedDB(),
+        ]);
+      } catch (error) {
+        console.error('Migration error:', error);
+      }
+      setIsMigrated(true);
+    };
+    runMigrations();
+  }, []);
+
+  if (!isMigrated) {
+    return <LoadingFallback />;
+  }
+
+  return <App />;
+};
+
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Suspense fallback={<LoadingFallback />}>
-      <App />
+      <AppWithMigration />
     </Suspense>
   </React.StrictMode>
 );
