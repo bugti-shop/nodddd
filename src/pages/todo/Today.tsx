@@ -121,6 +121,15 @@ const Today = () => {
     const loadAll = async () => {
       let loadedItems = await loadTodoItems();
       
+      // Auto-rollover repeat tasks that are overdue
+      const { processTaskRollovers } = await import('@/utils/taskRollover');
+      const { tasks: rolledOverItems, rolledOverCount } = processTaskRollovers(loadedItems);
+      if (rolledOverCount > 0) {
+        await saveTodoItems(rolledOverItems);
+        loadedItems = rolledOverItems;
+        toast.info(`Auto-updated ${rolledOverCount} recurring task(s) to next date`, { icon: '🔄' });
+      }
+      
       // Auto-cleanup completed tasks older than 3 days
       const { cleanedTasks, deletedCount } = cleanupCompletedTasks(loadedItems, 3);
       if (deletedCount > 0) {
@@ -689,7 +698,9 @@ const Today = () => {
   };
 
   const convertToNotes = (tasksToConvert: TodoItem[]) => {
-    const existingNotes: Note[] = JSON.parse(localStorage.getItem('notes') || '[]');
+  const convertToNotes = async (tasksToConvert: TodoItem[]) => {
+    const { loadNotesFromDB, saveNotesToDB } = await import('@/utils/noteStorage');
+    const existingNotes = await loadNotesFromDB();
     
     const newNotes: Note[] = tasksToConvert.map((task, idx) => ({
       id: `${Date.now()}-${idx}`,
@@ -702,7 +713,7 @@ const Today = () => {
       updatedAt: new Date(),
     }));
 
-    localStorage.setItem('notes', JSON.stringify([...newNotes, ...existingNotes]));
+    await saveNotesToDB([...newNotes, ...existingNotes]);
     setItems(items.filter(i => !tasksToConvert.some(t => t.id === i.id)));
     setSelectedTaskIds(new Set());
     setIsSelectionMode(false);

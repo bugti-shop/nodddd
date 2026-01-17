@@ -1,37 +1,38 @@
 /**
- * Task Order Storage - Persists custom task ordering to localStorage
+ * Task Order Storage - Persists custom task ordering to IndexedDB
  */
 
+import { getSetting, setSetting } from './settingsStorage';
+
 const TASK_ORDER_KEY = 'taskCustomOrder';
-const SECTION_ORDER_KEY = 'taskSectionOrder';
 
 interface TaskOrderMap {
   [sectionId: string]: string[]; // sectionId -> array of taskIds in order
 }
 
+// In-memory cache for synchronous access
+let orderCache: TaskOrderMap | null = null;
+
 /**
- * Load custom task order from localStorage
+ * Load custom task order (sync version using cache)
  */
 export const loadTaskOrder = (): TaskOrderMap => {
-  try {
-    const saved = localStorage.getItem(TASK_ORDER_KEY);
-    if (!saved) return {};
-    return JSON.parse(saved);
-  } catch (e) {
-    console.error('Failed to load task order:', e);
-    return {};
-  }
+  return orderCache || {};
 };
 
 /**
- * Save custom task order to localStorage
+ * Initialize order cache from IndexedDB (call on app startup)
+ */
+export const initializeTaskOrder = async (): Promise<void> => {
+  orderCache = await getSetting<TaskOrderMap>(TASK_ORDER_KEY, {});
+};
+
+/**
+ * Save custom task order to IndexedDB
  */
 export const saveTaskOrder = (order: TaskOrderMap): void => {
-  try {
-    localStorage.setItem(TASK_ORDER_KEY, JSON.stringify(order));
-  } catch (e) {
-    console.error('Failed to save task order:', e);
-  }
+  orderCache = order;
+  setSetting(TASK_ORDER_KEY, order);
 };
 
 /**
@@ -85,7 +86,8 @@ export const applyTaskOrder = <T extends { id: string }>(
  * Clear all saved task orders
  */
 export const clearAllTaskOrders = (): void => {
-  localStorage.removeItem(TASK_ORDER_KEY);
+  orderCache = {};
+  setSetting(TASK_ORDER_KEY, {});
 };
 
 /**

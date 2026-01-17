@@ -1,3 +1,5 @@
+import { getSetting, setSetting } from '@/utils/settingsStorage';
+
 export interface NotificationHistoryItem {
   id: string;
   noteId: string;
@@ -11,32 +13,31 @@ export interface NotificationHistoryItem {
 
 const STORAGE_KEY = 'nota-notification-history';
 
+// In-memory cache for sync access
+let historyCache: NotificationHistoryItem[] | null = null;
+
 export const getNotificationHistory = (): NotificationHistoryItem[] => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return [];
-    return JSON.parse(saved).map((item: NotificationHistoryItem) => ({
-      ...item,
-      triggeredAt: new Date(item.triggeredAt),
-    }));
-  } catch {
-    return [];
-  }
+  return historyCache || [];
+};
+
+export const initializeNotificationHistory = async (): Promise<void> => {
+  const saved = await getSetting<NotificationHistoryItem[]>(STORAGE_KEY, []);
+  historyCache = saved.map((item) => ({
+    ...item,
+    triggeredAt: new Date(item.triggeredAt),
+  }));
 };
 
 export const saveNotificationHistory = (item: NotificationHistoryItem): void => {
-  try {
-    const history = getNotificationHistory();
-    history.unshift(item);
-    // Keep only last 50 items
-    const trimmed = history.slice(0, 50);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
-  } catch (error) {
-    console.error('Failed to save notification history:', error);
-  }
+  const history = getNotificationHistory();
+  history.unshift(item);
+  // Keep only last 50 items
+  const trimmed = history.slice(0, 50);
+  historyCache = trimmed;
+  setSetting(STORAGE_KEY, trimmed);
 };
 
 export const clearNotificationHistory = (): void => {
-  localStorage.removeItem(STORAGE_KEY);
+  historyCache = [];
+  setSetting(STORAGE_KEY, []);
 };
-

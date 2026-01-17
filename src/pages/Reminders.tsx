@@ -72,9 +72,9 @@ const Reminders = () => {
   const loadReminders = async () => {
     setLoading(true);
     try {
-      // Load notes
-      const savedNotes = localStorage.getItem('notes');
-      const allNotes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
+      // Load notes from IndexedDB
+      const { loadNotesFromDB } = await import('@/utils/noteStorage');
+      const allNotes = await loadNotesFromDB();
 
       // Load tasks from IndexedDB
       const allTasks = await loadTasksFromDB();
@@ -107,7 +107,7 @@ const Reminders = () => {
       setReminders(reminderItems);
     } catch (error) {
       console.error('Error loading reminders:', error);
-      // Fallback to loading from localStorage data
+      // Fallback to loading from IndexedDB
       loadRemindersFromStorage();
     } finally {
       setLoading(false);
@@ -115,8 +115,8 @@ const Reminders = () => {
   };
 
   const loadRemindersFromStorage = async () => {
-    const savedNotes = localStorage.getItem('notes');
-    const allNotes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
+    const { loadNotesFromDB } = await import('@/utils/noteStorage');
+    const allNotes = await loadNotesFromDB();
 
     const allTasks = await loadTasksFromDB();
 

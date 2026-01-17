@@ -1,6 +1,7 @@
 import { TodoItem } from '@/types/note';
 import { GoogleCalendar, getAccessToken, isGoogleCalendarEnabled } from './googleCalendar';
 import { loadTasksFromDB } from './taskStorage';
+import { getSetting, setSetting } from './settingsStorage';
 
 const CALENDAR_SYNC_ENABLED_KEY = 'calendarSyncEnabled';
 const SELECTED_CALENDARS_KEY = 'selectedCalendars';
@@ -9,37 +10,29 @@ const LAST_SYNC_TIME_KEY = 'calendarLastSyncTime';
 class CalendarSyncManager {
   private autoSyncInterval: ReturnType<typeof setInterval> | null = null;
 
-  isCalendarSyncEnabled(): boolean {
-    return localStorage.getItem(CALENDAR_SYNC_ENABLED_KEY) === 'true';
+  async isCalendarSyncEnabled(): Promise<boolean> {
+    return await getSetting<boolean>(CALENDAR_SYNC_ENABLED_KEY, false);
   }
 
-  setCalendarSyncEnabled(enabled: boolean): void {
-    localStorage.setItem(CALENDAR_SYNC_ENABLED_KEY, String(enabled));
+  async setCalendarSyncEnabled(enabled: boolean): Promise<void> {
+    await setSetting(CALENDAR_SYNC_ENABLED_KEY, enabled);
   }
 
-  getSelectedCalendars(): string[] {
-    const stored = localStorage.getItem(SELECTED_CALENDARS_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return ['primary'];
-      }
-    }
-    return ['primary'];
+  async getSelectedCalendars(): Promise<string[]> {
+    return await getSetting<string[]>(SELECTED_CALENDARS_KEY, ['primary']);
   }
 
-  setSelectedCalendars(calendars: string[]): void {
-    localStorage.setItem(SELECTED_CALENDARS_KEY, JSON.stringify(calendars));
+  async setSelectedCalendars(calendars: string[]): Promise<void> {
+    await setSetting(SELECTED_CALENDARS_KEY, calendars);
   }
 
-  getLastSyncTime(): Date | null {
-    const stored = localStorage.getItem(LAST_SYNC_TIME_KEY);
+  async getLastSyncTime(): Promise<Date | null> {
+    const stored = await getSetting<string | null>(LAST_SYNC_TIME_KEY, null);
     return stored ? new Date(stored) : null;
   }
 
-  setLastSyncTime(time: Date): void {
-    localStorage.setItem(LAST_SYNC_TIME_KEY, time.toISOString());
+  async setLastSyncTime(time: Date): Promise<void> {
+    await setSetting(LAST_SYNC_TIME_KEY, time.toISOString());
   }
 
   async fetchAvailableCalendars(): Promise<GoogleCalendar[]> {
@@ -76,7 +69,7 @@ class CalendarSyncManager {
       throw new Error('Not authenticated with Google');
     }
 
-    const selectedCalendars = this.getSelectedCalendars();
+    const selectedCalendars = await this.getSelectedCalendars();
     const tasks: TodoItem[] = [];
 
     const now = new Date();
@@ -127,7 +120,7 @@ class CalendarSyncManager {
       }
     }
 
-    this.setLastSyncTime(new Date());
+    await this.setLastSyncTime(new Date());
     return { tasks, count: tasks.length };
   }
 
@@ -148,7 +141,7 @@ class CalendarSyncManager {
       t => !existingEventIds.has(t.googleCalendarEventId)
     );
 
-    this.setLastSyncTime(new Date());
+    await this.setLastSyncTime(new Date());
 
     return {
       imported: newTasks,
@@ -163,7 +156,8 @@ class CalendarSyncManager {
     this.autoSyncInterval = setInterval(async () => {
       try {
         const isEnabled = await isGoogleCalendarEnabled();
-        if (!isEnabled || !this.isCalendarSyncEnabled()) {
+        const syncEnabled = await this.isCalendarSyncEnabled();
+        if (!isEnabled || !syncEnabled) {
           this.disableAutoSync();
           return;
         }
