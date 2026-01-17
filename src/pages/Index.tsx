@@ -231,7 +231,8 @@ const Index = () => {
         }
         return n;
       });
-      localStorage.setItem('notes', JSON.stringify(updatedNotes));
+      // Save to IndexedDB
+      saveNotesToDB(updatedNotes);
       return updatedNotes;
     });
   };
@@ -244,7 +245,8 @@ const Index = () => {
         }
         return n;
       });
-      localStorage.setItem('notes', JSON.stringify(updatedNotes));
+      // Save to IndexedDB
+      saveNotesToDB(updatedNotes);
       return updatedNotes;
     });
   };
@@ -292,7 +294,8 @@ const Index = () => {
         });
       }
 
-      localStorage.setItem('notes', JSON.stringify(updatedNotes));
+      // Save to IndexedDB
+      saveNotesToDB(updatedNotes);
       return updatedNotes;
     });
   };

@@ -46,10 +46,11 @@ export const NoteProtectionSheet = ({
   useEffect(() => {
     if (isOpen) {
       checkBiometricAvailability().then(setBiometricStatus);
-      const protection = getNoteProtection(noteId);
-      setIsProtected(protection.hasPassword || protection.useBiometric);
-      setUseBiometric(protection.useBiometric);
-      setUsePassword(protection.hasPassword);
+      getNoteProtection(noteId).then((protection) => {
+        setIsProtected(protection.hasPassword || protection.useBiometric);
+        setUseBiometric(protection.useBiometric);
+        setUsePassword(protection.hasPassword);
+      });
       setPassword('');
       setConfirmPassword('');
     }

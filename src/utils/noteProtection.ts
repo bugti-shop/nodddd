@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { NativeBiometric, BiometryType } from 'capacitor-native-biometric';
 import i18n from '@/i18n';
+import { getSetting, setSetting, removeSetting } from './settingsStorage';
 
 const HIDDEN_NOTES_PASSWORD_KEY = 'npd_hidden_notes_password';
 const HIDDEN_NOTES_SALT_KEY = 'npd_hidden_notes_salt';
@@ -8,6 +9,20 @@ const HIDDEN_NOTES_USE_BIOMETRIC_KEY = 'npd_hidden_notes_use_biometric';
 const SECURITY_QUESTION_KEY = 'npd_security_question';
 const SECURITY_ANSWER_KEY = 'npd_security_answer';
 const SECURITY_ANSWER_SALT_KEY = 'npd_security_answer_salt';
+
+// In-memory cache for sync access to settings
+let settingsCache: Record<string, any> = {};
+
+export const initializeProtectionSettings = async (): Promise<void> => {
+  settingsCache = {
+    [HIDDEN_NOTES_PASSWORD_KEY]: await getSetting<string | null>(HIDDEN_NOTES_PASSWORD_KEY, null),
+    [HIDDEN_NOTES_SALT_KEY]: await getSetting<string | null>(HIDDEN_NOTES_SALT_KEY, null),
+    [HIDDEN_NOTES_USE_BIOMETRIC_KEY]: await getSetting<boolean>(HIDDEN_NOTES_USE_BIOMETRIC_KEY, false),
+    [SECURITY_QUESTION_KEY]: await getSetting<string | null>(SECURITY_QUESTION_KEY, null),
+    [SECURITY_ANSWER_KEY]: await getSetting<string | null>(SECURITY_ANSWER_KEY, null),
+    [SECURITY_ANSWER_SALT_KEY]: await getSetting<string | null>(SECURITY_ANSWER_SALT_KEY, null),
+  };
+};
 
 export interface BiometricStatus {
   isAvailable: boolean;
@@ -87,14 +102,12 @@ const bufferToHex = (buffer: ArrayBuffer): string => {
 };
 
 // Hash password using Web Crypto API with PBKDF2
-// This is a secure, industry-standard key derivation function
 const hashPasswordAsync = async (password: string, salt: string): Promise<string> => {
   try {
     const encoder = new TextEncoder();
     const passwordData = encoder.encode(password);
     const saltData = encoder.encode(salt);
 
-    // Import password as key material
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
       passwordData,
@@ -103,12 +116,11 @@ const hashPasswordAsync = async (password: string, salt: string): Promise<string
       ['deriveBits']
     );
 
-    // Derive bits using PBKDF2 with SHA-256
     const derivedBits = await crypto.subtle.deriveBits(
       {
         name: 'PBKDF2',
         salt: saltData,
-        iterations: 100000, // High iteration count for security
+        iterations: 100000,
         hash: 'SHA-256'
       },
       keyMaterial,
@@ -118,7 +130,6 @@ const hashPasswordAsync = async (password: string, salt: string): Promise<string
     return bufferToHex(derivedBits);
   } catch (error) {
     console.error('Error hashing password:', error);
-    // Fallback to a simple hash if Web Crypto is not available (should be rare)
     return fallbackHash(password + salt);
   }
 };
@@ -134,18 +145,13 @@ const fallbackHash = (input: string): string => {
   return 'fallback_' + Math.abs(hash).toString(36);
 };
 
-// Synchronous hash for backward compatibility during migration
-// Note: This is weaker but needed for immediate verification
+// Synchronous hash for backward compatibility
 export const hashPassword = (password: string): string => {
-  // Check if there's an existing salt (new format)
-  const existingSalt = localStorage.getItem(HIDDEN_NOTES_SALT_KEY);
+  const existingSalt = settingsCache[HIDDEN_NOTES_SALT_KEY];
   if (existingSalt) {
-    // For sync verification, we need to use the async method
-    // This function is kept for API compatibility but shouldn't be used for new hashes
     console.warn('hashPassword called with new salt format - use hashPasswordSecure instead');
   }
   
-  // Legacy hash for backward compatibility
   let hash = 0;
   for (let i = 0; i < password.length; i++) {
     const char = password.charCodeAt(i);
@@ -165,19 +171,16 @@ export const hashPasswordSecure = async (password: string, salt?: string): Promi
 // Verify password (supports both legacy and new format)
 export const verifyPassword = async (password: string, hashedPassword: string, salt?: string): Promise<boolean> => {
   if (salt) {
-    // New secure format
     const { hash } = await hashPasswordSecure(password, salt);
     return hash === hashedPassword;
   }
-  
-  // Legacy format (backward compatibility)
   return hashPassword(password) === hashedPassword;
 };
 
 // Get hidden notes password settings
 export const getHiddenNotesSettings = (): { hasPassword: boolean; useBiometric: boolean } => {
-  const password = localStorage.getItem(HIDDEN_NOTES_PASSWORD_KEY);
-  const useBiometric = localStorage.getItem(HIDDEN_NOTES_USE_BIOMETRIC_KEY) === 'true';
+  const password = settingsCache[HIDDEN_NOTES_PASSWORD_KEY];
+  const useBiometric = settingsCache[HIDDEN_NOTES_USE_BIOMETRIC_KEY] === true;
   return {
     hasPassword: !!password,
     useBiometric,
@@ -187,14 +190,16 @@ export const getHiddenNotesSettings = (): { hasPassword: boolean; useBiometric: 
 // Set hidden notes password (async, secure)
 export const setHiddenNotesPassword = async (password: string): Promise<void> => {
   const { hash, salt } = await hashPasswordSecure(password);
-  localStorage.setItem(HIDDEN_NOTES_PASSWORD_KEY, hash);
-  localStorage.setItem(HIDDEN_NOTES_SALT_KEY, salt);
+  settingsCache[HIDDEN_NOTES_PASSWORD_KEY] = hash;
+  settingsCache[HIDDEN_NOTES_SALT_KEY] = salt;
+  await setSetting(HIDDEN_NOTES_PASSWORD_KEY, hash);
+  await setSetting(HIDDEN_NOTES_SALT_KEY, salt);
 };
 
-// Verify hidden notes password (async, supports both formats)
+// Verify hidden notes password (async)
 export const verifyHiddenNotesPassword = async (password: string): Promise<boolean> => {
-  const storedHash = localStorage.getItem(HIDDEN_NOTES_PASSWORD_KEY);
-  const storedSalt = localStorage.getItem(HIDDEN_NOTES_SALT_KEY);
+  const storedHash = settingsCache[HIDDEN_NOTES_PASSWORD_KEY];
+  const storedSalt = settingsCache[HIDDEN_NOTES_SALT_KEY];
   
   if (!storedHash) return false;
   
@@ -202,36 +207,40 @@ export const verifyHiddenNotesPassword = async (password: string): Promise<boole
 };
 
 // Enable/disable biometric for hidden notes
-export const setHiddenNotesBiometric = (enabled: boolean): void => {
-  localStorage.setItem(HIDDEN_NOTES_USE_BIOMETRIC_KEY, enabled.toString());
+export const setHiddenNotesBiometric = async (enabled: boolean): Promise<void> => {
+  settingsCache[HIDDEN_NOTES_USE_BIOMETRIC_KEY] = enabled;
+  await setSetting(HIDDEN_NOTES_USE_BIOMETRIC_KEY, enabled);
 };
 
 // Clear hidden notes protection
-export const clearHiddenNotesProtection = (): void => {
-  localStorage.removeItem(HIDDEN_NOTES_PASSWORD_KEY);
-  localStorage.removeItem(HIDDEN_NOTES_SALT_KEY);
-  localStorage.removeItem(HIDDEN_NOTES_USE_BIOMETRIC_KEY);
+export const clearHiddenNotesProtection = async (): Promise<void> => {
+  settingsCache[HIDDEN_NOTES_PASSWORD_KEY] = null;
+  settingsCache[HIDDEN_NOTES_SALT_KEY] = null;
+  settingsCache[HIDDEN_NOTES_USE_BIOMETRIC_KEY] = false;
+  await removeSetting(HIDDEN_NOTES_PASSWORD_KEY);
+  await removeSetting(HIDDEN_NOTES_SALT_KEY);
+  await removeSetting(HIDDEN_NOTES_USE_BIOMETRIC_KEY);
 };
 
-// Security Question functions for password recovery
-// Set security question and answer (async, secure)
+// Security Question functions
 export const setSecurityQuestion = async (question: string, answer: string): Promise<void> => {
   const normalized = answer.toLowerCase().trim();
   const { hash, salt } = await hashPasswordSecure(normalized);
-  localStorage.setItem(SECURITY_QUESTION_KEY, question);
-  localStorage.setItem(SECURITY_ANSWER_KEY, hash);
-  localStorage.setItem(SECURITY_ANSWER_SALT_KEY, salt);
+  settingsCache[SECURITY_QUESTION_KEY] = question;
+  settingsCache[SECURITY_ANSWER_KEY] = hash;
+  settingsCache[SECURITY_ANSWER_SALT_KEY] = salt;
+  await setSetting(SECURITY_QUESTION_KEY, question);
+  await setSetting(SECURITY_ANSWER_KEY, hash);
+  await setSetting(SECURITY_ANSWER_SALT_KEY, salt);
 };
 
-// Get security question
 export const getSecurityQuestion = (): string | null => {
-  return localStorage.getItem(SECURITY_QUESTION_KEY);
+  return settingsCache[SECURITY_QUESTION_KEY] || null;
 };
 
-// Verify security answer (async)
 export const verifySecurityAnswer = async (answer: string): Promise<boolean> => {
-  const storedHash = localStorage.getItem(SECURITY_ANSWER_KEY);
-  const storedSalt = localStorage.getItem(SECURITY_ANSWER_SALT_KEY);
+  const storedHash = settingsCache[SECURITY_ANSWER_KEY];
+  const storedSalt = settingsCache[SECURITY_ANSWER_SALT_KEY];
   
   if (!storedHash) return false;
   
@@ -239,16 +248,17 @@ export const verifySecurityAnswer = async (answer: string): Promise<boolean> => 
   return verifyPassword(normalized, storedHash, storedSalt || undefined);
 };
 
-// Check if security question is set up
 export const hasSecurityQuestion = (): boolean => {
-  return !!localStorage.getItem(SECURITY_QUESTION_KEY) && !!localStorage.getItem(SECURITY_ANSWER_KEY);
+  return !!settingsCache[SECURITY_QUESTION_KEY] && !!settingsCache[SECURITY_ANSWER_KEY];
 };
 
-// Clear security question
-export const clearSecurityQuestion = (): void => {
-  localStorage.removeItem(SECURITY_QUESTION_KEY);
-  localStorage.removeItem(SECURITY_ANSWER_KEY);
-  localStorage.removeItem(SECURITY_ANSWER_SALT_KEY);
+export const clearSecurityQuestion = async (): Promise<void> => {
+  settingsCache[SECURITY_QUESTION_KEY] = null;
+  settingsCache[SECURITY_ANSWER_KEY] = null;
+  settingsCache[SECURITY_ANSWER_SALT_KEY] = null;
+  await removeSetting(SECURITY_QUESTION_KEY);
+  await removeSetting(SECURITY_ANSWER_KEY);
+  await removeSetting(SECURITY_ANSWER_SALT_KEY);
 };
 
 // Authenticate for hidden notes access
@@ -256,18 +266,15 @@ export const authenticateForHiddenNotes = async (password?: string): Promise<boo
   const settings = getHiddenNotesSettings();
   const t = i18n.t.bind(i18n);
   
-  // If no protection is set, allow access
   if (!settings.hasPassword && !settings.useBiometric) {
     return true;
   }
 
-  // Try biometric first if enabled
   if (settings.useBiometric) {
     const biometricResult = await authenticateWithBiometric(t('biometric.accessHiddenNotes'));
     if (biometricResult) return true;
   }
 
-  // Fall back to password
   if (password && settings.hasPassword) {
     return verifyHiddenNotesPassword(password);
   }
@@ -285,31 +292,27 @@ const getNoteProtectionKey = (noteId: string) => `npd_note_protection_${noteId}`
 const getNotePasswordKey = (noteId: string) => `npd_note_password_${noteId}`;
 const getNoteSaltKey = (noteId: string) => `npd_note_salt_${noteId}`;
 
-export const getNoteProtection = (noteId: string): NoteProtection => {
-  const data = localStorage.getItem(getNoteProtectionKey(noteId));
+export const getNoteProtection = async (noteId: string): Promise<NoteProtection> => {
+  const data = await getSetting<NoteProtection | null>(getNoteProtectionKey(noteId), null);
   if (!data) return { hasPassword: false, useBiometric: false };
-  try {
-    return JSON.parse(data);
-  } catch {
-    return { hasPassword: false, useBiometric: false };
-  }
+  return data;
 };
 
 export const setNoteProtection = async (noteId: string, protection: NoteProtection, password?: string): Promise<void> => {
-  localStorage.setItem(getNoteProtectionKey(noteId), JSON.stringify(protection));
+  await setSetting(getNoteProtectionKey(noteId), protection);
   if (password) {
     const { hash, salt } = await hashPasswordSecure(password);
-    localStorage.setItem(getNotePasswordKey(noteId), hash);
-    localStorage.setItem(getNoteSaltKey(noteId), salt);
+    await setSetting(getNotePasswordKey(noteId), hash);
+    await setSetting(getNoteSaltKey(noteId), salt);
   } else if (!protection.hasPassword) {
-    localStorage.removeItem(getNotePasswordKey(noteId));
-    localStorage.removeItem(getNoteSaltKey(noteId));
+    await removeSetting(getNotePasswordKey(noteId));
+    await removeSetting(getNoteSaltKey(noteId));
   }
 };
 
 export const verifyNotePassword = async (noteId: string, password: string): Promise<boolean> => {
-  const storedHash = localStorage.getItem(getNotePasswordKey(noteId));
-  const storedSalt = localStorage.getItem(getNoteSaltKey(noteId));
+  const storedHash = await getSetting<string | null>(getNotePasswordKey(noteId), null);
+  const storedSalt = await getSetting<string | null>(getNoteSaltKey(noteId), null);
   
   if (!storedHash) return false;
   
@@ -317,7 +320,7 @@ export const verifyNotePassword = async (noteId: string, password: string): Prom
 };
 
 export const authenticateForNote = async (noteId: string, password?: string): Promise<boolean> => {
-  const protection = getNoteProtection(noteId);
+  const protection = await getNoteProtection(noteId);
   const t = i18n.t.bind(i18n);
   
   if (!protection.hasPassword && !protection.useBiometric) {
@@ -336,8 +339,8 @@ export const authenticateForNote = async (noteId: string, password?: string): Pr
   return false;
 };
 
-export const removeNoteProtection = (noteId: string): void => {
-  localStorage.removeItem(getNoteProtectionKey(noteId));
-  localStorage.removeItem(getNotePasswordKey(noteId));
-  localStorage.removeItem(getNoteSaltKey(noteId));
+export const removeNoteProtection = async (noteId: string): Promise<void> => {
+  await removeSetting(getNoteProtectionKey(noteId));
+  await removeSetting(getNotePasswordKey(noteId));
+  await removeSetting(getNoteSaltKey(noteId));
 };

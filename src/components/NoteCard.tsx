@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Note } from '@/types/note';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trash2, Edit, Mic, FileText, Pen, Pin, FileCode, GitBranch, AlignLeft, Archive, Star, Check, Copy, EyeOff, Shield, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { getNoteProtection } from '@/utils/noteProtection';
+import { getNoteProtection, NoteProtection } from '@/utils/noteProtection';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,17 +61,22 @@ export const NoteCard = ({ note, onEdit, onDelete, onArchive, onTogglePin, onTog
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [noteProtection, setNoteProtection] = useState<NoteProtection>({ hasPassword: false, useBiometric: false });
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
   const swipeStartX = useRef<number | null>(null);
+
+  // Load protection status async
+  useEffect(() => {
+    getNoteProtection(note.id).then(setNoteProtection);
+  }, [note.id]);
 
   const isSticky = note.type === 'sticky';
   const isLined = note.type === 'lined';
   const isSketch = note.type === 'sketch';
   const isMindMap = note.type === 'mindmap';
   const isCode = note.type === 'code';
-  const noteProtection = getNoteProtection(note.id);
   const SWIPE_THRESHOLD = 80;
 
   const getHapticStyle = () => {

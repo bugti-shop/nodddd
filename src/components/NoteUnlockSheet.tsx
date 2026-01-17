@@ -42,7 +42,7 @@ export const NoteUnlockSheet = ({
   useEffect(() => {
     if (isOpen) {
       checkBiometricAvailability().then(setBiometricStatus);
-      setProtection(getNoteProtection(noteId));
+      getNoteProtection(noteId).then(setProtection);
       setPassword('');
       setIsAuthenticating(false);
     }
