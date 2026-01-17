@@ -67,14 +67,18 @@ export const LocationReminderSheet = ({
     priority: 'sheet',
   });
 
-  // Check for stored token
+  // Check for stored token from IndexedDB
   useEffect(() => {
-    const storedToken = localStorage.getItem('mapbox_token');
-    if (storedToken) {
-      setMapboxToken(storedToken);
-    } else {
-      setShowTokenInput(true);
-    }
+    const loadToken = async () => {
+      const { getSetting } = await import('@/utils/settingsStorage');
+      const storedToken = await getSetting<string | null>('mapbox_token', null);
+      if (storedToken) {
+        setMapboxToken(storedToken);
+      } else {
+        setShowTokenInput(true);
+      }
+    };
+    loadToken();
   }, []);
 
   // Initialize map

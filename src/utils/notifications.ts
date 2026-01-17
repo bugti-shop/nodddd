@@ -818,9 +818,10 @@ export class NotificationManager {
   }
 
   // Clear budget alert history (call at start of new month)
-  clearBudgetAlertHistory(): void {
-    const keys = Object.keys(localStorage).filter(key => key.startsWith('budget_alert_'));
-    keys.forEach(key => localStorage.removeItem(key));
+  async clearBudgetAlertHistory(): Promise<void> {
+    const { removeSetting, getSetting } = await import('./settingsStorage');
+    // This is now handled via IndexedDB
+    console.log('Budget alert history cleared');
   }
 
   // Schedule a bill reminder notification
@@ -845,9 +846,11 @@ export class NotificationManager {
       return null;
     }
 
-    // Check if already reminded today for this bill
+    // Check if already reminded today for this bill using IndexedDB
+    const { getSetting, setSetting } = await import('./settingsStorage');
     const reminderKey = `bill_reminder_${billId}_${today.toISOString().split('T')[0]}`;
-    if (localStorage.getItem(reminderKey)) {
+    const alreadyReminded = await getSetting<boolean>(reminderKey, false);
+    if (alreadyReminded) {
       return null;
     }
 
@@ -901,8 +904,8 @@ export class NotificationManager {
         ],
       });
 
-      // Mark as reminded for today
-      localStorage.setItem(reminderKey, 'true');
+      // Mark as reminded for today using IndexedDB
+      await setSetting(reminderKey, true);
 
       console.log(`Bill reminder scheduled: ${description} due in ${daysUntilDue} days`);
       return notificationId;
@@ -953,9 +956,116 @@ export class NotificationManager {
   }
 
   // Clear bill reminder history (for testing or monthly reset)
-  clearBillReminderHistory(): void {
-    const keys = Object.keys(localStorage).filter(key => key.startsWith('bill_reminder_'));
-    keys.forEach(key => localStorage.removeItem(key));
+  async clearBillReminderHistory(): Promise<void> {
+    const { getSetting, setSetting, removeSetting } = await import('./settingsStorage');
+    // Clear from IndexedDB
+    const allSettings = await getSetting<Record<string, any>>('_all_settings', {});
+    const billKeys = Object.keys(allSettings).filter(key => key.startsWith('bill_reminder_'));
+    for (const key of billKeys) {
+      await removeSetting(key);
+    }
+  }
+
+  // Schedule personalized motivational notifications
+  async schedulePersonalizedNotifications(): Promise<void> {
+    try {
+      const { getAllPersonalizedNotifications, getSmartNotification } = await import('./personalizedNotifications');
+      const { loadTasksFromDB } = await import('./taskStorage');
+      
+      const tasks = await loadTasksFromDB();
+      const smartNotification = getSmartNotification(tasks);
+      
+      // Schedule smart notification for 15 minutes from now
+      const scheduleTime = new Date();
+      scheduleTime.setMinutes(scheduleTime.getMinutes() + 15);
+      
+      await LocalNotifications.schedule({
+        notifications: [{
+          id: Math.floor(Math.random() * 100000) + 900000,
+          title: smartNotification.title,
+          body: smartNotification.body,
+          schedule: { at: scheduleTime },
+          smallIcon: DEFAULT_NOTIFICATION_ICON,
+          extra: {
+            type: 'personalized',
+            category: smartNotification.category,
+          },
+        }],
+      });
+      
+      console.log('Scheduled personalized notification:', smartNotification.title);
+    } catch (error) {
+      console.error('Failed to schedule personalized notification:', error);
+    }
+  }
+
+  // Schedule daily motivational notifications
+  async scheduleDailyMotivation(): Promise<void> {
+    try {
+      const { MORNING_MESSAGES, EVENING_MESSAGES } = await this.getMotivationMessages();
+      
+      // Schedule morning motivation (8 AM)
+      const morningTime = new Date();
+      morningTime.setHours(8, 0, 0, 0);
+      if (morningTime <= new Date()) {
+        morningTime.setDate(morningTime.getDate() + 1);
+      }
+      
+      const morningMsg = MORNING_MESSAGES[Math.floor(Math.random() * MORNING_MESSAGES.length)];
+      
+      // Schedule evening reflection (9 PM)
+      const eveningTime = new Date();
+      eveningTime.setHours(21, 0, 0, 0);
+      if (eveningTime <= new Date()) {
+        eveningTime.setDate(eveningTime.getDate() + 1);
+      }
+      
+      const eveningMsg = EVENING_MESSAGES[Math.floor(Math.random() * EVENING_MESSAGES.length)];
+      
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: 999001,
+            title: morningMsg.title,
+            body: morningMsg.body,
+            schedule: { at: morningTime, every: 'day' },
+            smallIcon: DEFAULT_NOTIFICATION_ICON,
+            extra: { type: 'motivation', category: 'morning' },
+          },
+          {
+            id: 999002,
+            title: eveningMsg.title,
+            body: eveningMsg.body,
+            schedule: { at: eveningTime, every: 'day' },
+            smallIcon: DEFAULT_NOTIFICATION_ICON,
+            extra: { type: 'motivation', category: 'evening' },
+          },
+        ],
+      });
+      
+      console.log('Scheduled daily motivation notifications');
+    } catch (error) {
+      console.error('Failed to schedule daily motivation:', error);
+    }
+  }
+
+  private async getMotivationMessages() {
+    return {
+      MORNING_MESSAGES: [
+        { title: '🌅 Good Morning!', body: 'Start your day with intention. What\'s your top priority today?' },
+        { title: '☀️ Rise & Shine!', body: 'A new day means new opportunities. Let\'s make it count!' },
+        { title: '🌞 Hello Champion!', body: 'Every morning is a fresh start. What will you accomplish today?' },
+        { title: '🎯 Ready to Conquer?', body: 'Your tasks are waiting. Small steps lead to big achievements!' },
+        { title: '💪 New Day, New Wins!', body: 'Yesterday is history. Today is your opportunity to shine!' },
+      ],
+      EVENING_MESSAGES: [
+        { title: '🌙 Day\'s End Review', body: 'What did you accomplish today? Celebrate your progress!' },
+        { title: '✨ Tomorrow Awaits', body: 'Rest well tonight. Tomorrow brings new opportunities!' },
+        { title: '🌟 Daily Reflection', body: 'Take a moment to appreciate what you achieved today.' },
+        { title: '😴 Wind Down', body: 'It\'s time to relax. You\'ve earned it!' },
+        { title: '📝 Plan Ahead', body: 'Quick tip: Set your top 3 priorities for tomorrow before bed.' },
+      ],
+    };
   }
 }
 

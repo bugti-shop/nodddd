@@ -35,12 +35,16 @@ export const LocationSearchInput = ({
   const [mapboxToken, setMapboxToken] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Get mapbox token
+  // Get mapbox token from IndexedDB
   useEffect(() => {
-    const storedToken = localStorage.getItem('mapbox_token');
-    if (storedToken) {
-      setMapboxToken(storedToken);
-    }
+    const loadToken = async () => {
+      const { getSetting } = await import('@/utils/settingsStorage');
+      const storedToken = await getSetting<string | null>('mapbox_token', null);
+      if (storedToken) {
+        setMapboxToken(storedToken);
+      }
+    };
+    loadToken();
   }, []);
 
   // Search locations

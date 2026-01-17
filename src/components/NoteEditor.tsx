@@ -240,7 +240,7 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
     }
   }, [note, defaultType, defaultFolderId, isOpen]);
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
 
     const newFolder: Folder = {
@@ -253,9 +253,10 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
 
     const updatedFolders = [...folders, newFolder];
     setFolders(updatedFolders);
-    // Save only non-default folders to localStorage and dispatch event
+    // Save folders to IndexedDB and dispatch event
     const foldersToSave = updatedFolders.filter(f => !f.isDefault);
-    localStorage.setItem('folders', JSON.stringify(foldersToSave));
+    const { setSetting } = await import('@/utils/settingsStorage');
+    await setSetting('folders', foldersToSave);
     // Dispatch event so Index.tsx can pick up the new folder
     window.dispatchEvent(new Event('foldersUpdated'));
     setSelectedFolderId(newFolder.id);
@@ -265,21 +266,12 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
     toast.success(t('toast.folderCreated'));
   };
 
-  const persistNoteToLocalStorage = useCallback((savedNote: Note) => {
+  const persistNoteToIndexedDB = useCallback(async (savedNote: Note) => {
     try {
-      const raw = localStorage.getItem('notes');
-      const existing: any[] = raw ? JSON.parse(raw) : [];
-
-      const idx = existing.findIndex((n) => n?.id === savedNote.id);
-      if (idx >= 0) {
-        existing[idx] = savedNote;
-      } else {
-        existing.unshift(savedNote);
-      }
-
-      localStorage.setItem('notes', JSON.stringify(existing));
+      const { saveNoteToDBSingle } = await import('@/utils/noteStorage');
+      await saveNoteToDBSingle(savedNote);
     } catch (e) {
-      console.warn('Failed to persist note to localStorage', e);
+      console.warn('Failed to persist note to IndexedDB', e);
     }
   }, []);
 
@@ -388,8 +380,8 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
     }
 
     onSave(savedNote);
-    persistNoteToLocalStorage(savedNote);
-  }, [buildCurrentNote, note, onSave, persistNoteToLocalStorage]);
+    persistNoteToIndexedDB(savedNote);
+  }, [buildCurrentNote, note, onSave, persistNoteToIndexedDB]);
 
   const handleSave = useCallback(async () => {
     await commitNote({ full: true });
