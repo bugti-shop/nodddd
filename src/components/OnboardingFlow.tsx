@@ -180,13 +180,13 @@ export default function OnboardingFlow({
     if (!Capacitor.isNativePlatform()) return;
     
     // Try to load cached offerings first for instant display
-    const cachedOfferings = localStorage.getItem('rc_offerings_cache');
+    const { getSetting, setSetting } = await import('@/utils/settingsStorage');
+    const cachedOfferings = await getSetting<{ data: any; timestamp: number } | null>('rc_offerings_cache', null);
     if (cachedOfferings) {
       try {
-        const parsed = JSON.parse(cachedOfferings);
         // Check if cache is less than 24 hours old
-        if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
-          setOfferings(parsed.data);
+        if (cachedOfferings.timestamp && Date.now() - cachedOfferings.timestamp < 24 * 60 * 60 * 1000) {
+          setOfferings(cachedOfferings.data);
         }
       } catch (e) {
         console.error('Failed to parse cached offerings:', e);
@@ -204,10 +204,10 @@ export default function OnboardingFlow({
       setOfferings(offeringsData);
       
       // Cache the offerings with timestamp
-      localStorage.setItem('rc_offerings_cache', JSON.stringify({
+      await setSetting('rc_offerings_cache', {
         data: offeringsData,
         timestamp: Date.now()
-      }));
+      });
     } catch (error) {
       console.error('Failed to fetch offerings:', error);
     } finally {

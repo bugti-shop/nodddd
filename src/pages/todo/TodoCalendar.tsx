@@ -89,13 +89,15 @@ const TodoCalendar = () => {
     const dates = filteredTasks.filter(task => task.dueDate).map(task => new Date(task.dueDate!));
     setTaskDates(dates);
 
-    const savedFolders = localStorage.getItem('todoFolders');
-    if (savedFolders) setFolders(JSON.parse(savedFolders));
+    // Load folders from IndexedDB
+    const { getSetting } = await import('@/utils/settingsStorage');
+    const savedFolders = await getSetting<Folder[]>('todoFolders', []);
+    if (savedFolders.length > 0) setFolders(savedFolders);
 
-    // Load calendar events
-    const savedEvents = localStorage.getItem('calendarEvents');
-    if (savedEvents) {
-      const loadedEvents = JSON.parse(savedEvents).map((e: CalendarEvent) => ({
+    // Load calendar events from IndexedDB
+    const savedEvents = await getSetting<CalendarEvent[]>('calendarEvents', []);
+    if (savedEvents.length > 0) {
+      const loadedEvents = savedEvents.map((e: CalendarEvent) => ({
         ...e,
         startDate: new Date(e.startDate),
         endDate: new Date(e.endDate),
@@ -272,11 +274,12 @@ const TodoCalendar = () => {
     setEventToDelete(event);
   };
 
-  const confirmDeleteEvent = () => {
+  const confirmDeleteEvent = async () => {
     if (eventToDelete) {
+      const { setSetting } = await import('@/utils/settingsStorage');
       const updatedEvents = events.filter(e => e.id !== eventToDelete.id);
       setEvents(updatedEvents);
-      localStorage.setItem('calendarEvents', JSON.stringify(updatedEvents));
+      await setSetting('calendarEvents', updatedEvents);
       notificationManager.cancelTaskReminder(eventToDelete.id).catch(console.error);
       toast.success('Event deleted');
       setEventToDelete(null);
@@ -284,18 +287,19 @@ const TodoCalendar = () => {
   };
 
   const handleSaveEvent = async (eventData: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const { setSetting } = await import('@/utils/settingsStorage');
     if (editingEvent) {
       const updatedEvent: CalendarEvent = { ...editingEvent, ...eventData, updatedAt: new Date() };
       const updatedEvents = events.map(e => e.id === editingEvent.id ? updatedEvent : e);
       setEvents(updatedEvents);
-      localStorage.setItem('calendarEvents', JSON.stringify(updatedEvents));
+      await setSetting('calendarEvents', updatedEvents);
       await scheduleEventNotification(updatedEvent);
       setEditingEvent(null);
     } else {
       const newEvent: CalendarEvent = { ...eventData, id: Date.now().toString(), createdAt: new Date(), updatedAt: new Date() };
       const updatedEvents = [...events, newEvent];
       setEvents(updatedEvents);
-      localStorage.setItem('calendarEvents', JSON.stringify(updatedEvents));
+      await setSetting('calendarEvents', updatedEvents);
       await scheduleEventNotification(newEvent);
     }
   };
@@ -376,11 +380,12 @@ const TodoCalendar = () => {
     window.dispatchEvent(new Event('tasksUpdated'));
   };
 
-  const handleCreateFolder = (name: string, color: string) => {
+  const handleCreateFolder = async (name: string, color: string) => {
+    const { setSetting } = await import('@/utils/settingsStorage');
     const newFolder: Folder = { id: Date.now().toString(), name, color, isDefault: false, createdAt: new Date() };
     const updatedFolders = [...folders, newFolder];
     setFolders(updatedFolders);
-    localStorage.setItem('todoFolders', JSON.stringify(updatedFolders));
+    await setSetting('todoFolders', updatedFolders);
   };
 
   const handleUpdateTask = async (itemId: string, updates: Partial<TodoItem>) => {
