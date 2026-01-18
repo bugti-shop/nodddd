@@ -450,9 +450,9 @@ export default function OnboardingFlow({
     const yearlyPkg = getYearlyPackage();
     
     // Hardcoded USD prices for display
-    const monthlyPrice = '$4.99/mo';
-    const yearlyPrice = '$35.88';
-    const yearlyMonthlyEquivalent = '$2.99/mo';
+    const monthlyPrice = '$5.99/mo';
+    const yearlyPrice = '$59.88';
+    const yearlyMonthlyEquivalent = '$4.99/mo';
     const trialDays = yearlyPkg?.product?.introPrice?.periodNumberOfUnits || PRICING_DISPLAY.yearly.trialDays;
 
     return (
