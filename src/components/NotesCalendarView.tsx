@@ -37,14 +37,12 @@ export const NotesCalendarView = ({
       return;
     }
 
-    // Load notes from localStorage and extract dates
-    const loadNotes = () => {
-      const saved = localStorage.getItem('notes');
-      if (saved) {
-        const notes: Note[] = JSON.parse(saved);
-        const dates = notes.map(note => new Date(note.createdAt));
-        setNoteDates(dates);
-      }
+    // Load notes from IndexedDB and extract dates
+    const loadNotes = async () => {
+      const { loadNotesFromDB } = await import('@/utils/noteStorage');
+      const notes = await loadNotesFromDB();
+      const dates = notes.map(note => new Date(note.createdAt));
+      setNoteDates(dates);
     };
 
     loadNotes();

@@ -79,20 +79,24 @@ const WeeklyReview = () => {
 
   useEffect(() => {
     // Load saved reflection for this week
-    const weekKey = format(currentWeekStart, 'yyyy-MM-dd');
-    const saved = localStorage.getItem(`weeklyReview_${weekKey}`);
-    if (saved) {
-      setReflection(JSON.parse(saved));
-    } else {
-      setReflection({
-        weekStart: weekKey,
-        wins: '',
-        challenges: '',
-        improvements: '',
-        goals: '',
-        rating: 0
-      });
-    }
+    const loadReflection = async () => {
+      const { getSetting } = await import('@/utils/settingsStorage');
+      const weekKey = format(currentWeekStart, 'yyyy-MM-dd');
+      const saved = await getSetting<WeeklyReflection | null>(`weeklyReview_${weekKey}`, null);
+      if (saved) {
+        setReflection(saved);
+      } else {
+        setReflection({
+          weekStart: weekKey,
+          wins: '',
+          challenges: '',
+          improvements: '',
+          goals: '',
+          rating: 0
+        });
+      }
+    };
+    loadReflection();
   }, [currentWeekStart]);
 
   const weekStats = useMemo(() => {
@@ -149,12 +153,13 @@ const WeeklyReview = () => {
     };
   }, [items, currentWeekStart, currentWeekEnd]);
 
-  const handleSaveReflection = () => {
+  const handleSaveReflection = async () => {
+    const { setSetting } = await import('@/utils/settingsStorage');
     const weekKey = format(currentWeekStart, 'yyyy-MM-dd');
-    localStorage.setItem(`weeklyReview_${weekKey}`, JSON.stringify({
+    await setSetting(`weeklyReview_${weekKey}`, {
       ...reflection,
       weekStart: weekKey
-    }));
+    });
     toast.success(t('weeklyReview.reflectionSaved'));
   };
 

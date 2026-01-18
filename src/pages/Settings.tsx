@@ -94,47 +94,50 @@ const Settings = () => {
   const [hasShownTrialWarning, setHasShownTrialWarning] = useState(false);
   
   useEffect(() => {
-    const trialStartStr = localStorage.getItem('npd_trial_start');
-    if (trialStartStr && isProUser && !hasAdminAccess) {
-      const trialStart = new Date(trialStartStr);
-      const trialEnd = addDays(trialStart, 3); // 3-day trial
-      
-      const updateCountdown = () => {
-        const now = new Date();
-        if (now < trialEnd) {
-          const totalMinutesRemaining = differenceInMinutes(trialEnd, now);
-          const days = Math.floor(totalMinutesRemaining / (24 * 60));
-          const hours = Math.floor((totalMinutesRemaining % (24 * 60)) / 60);
-          const minutes = totalMinutesRemaining % 60;
-          setTrialRemaining({ days, hours, minutes });
-          
-          // Show warning toast when less than 24 hours remaining (once per session)
-          const sessionWarningShown = sessionStorage.getItem('npd_trial_warning_shown');
-          if (days === 0 && !sessionWarningShown && !hasShownTrialWarning) {
-            toast({
-              title: `⏰ ${t('trial.endingSoon')}`,
-              description: t('trial.expiresIn', { hours, minutes }),
-              duration: 10000,
-            });
-            sessionStorage.setItem('npd_trial_warning_shown', 'true');
-            setHasShownTrialWarning(true);
+    const loadTrialData = async () => {
+      const trialStartStr = await getSetting<string | null>('npd_trial_start', null);
+      if (trialStartStr && isProUser && !hasAdminAccess) {
+        const trialStart = new Date(trialStartStr);
+        const trialEnd = addDays(trialStart, 3); // 3-day trial
+        
+        const updateCountdown = () => {
+          const now = new Date();
+          if (now < trialEnd) {
+            const totalMinutesRemaining = differenceInMinutes(trialEnd, now);
+            const days = Math.floor(totalMinutesRemaining / (24 * 60));
+            const hours = Math.floor((totalMinutesRemaining % (24 * 60)) / 60);
+            const minutes = totalMinutesRemaining % 60;
+            setTrialRemaining({ days, hours, minutes });
+            
+            // Show warning toast when less than 24 hours remaining (once per session)
+            const sessionWarningShown = sessionStorage.getItem('npd_trial_warning_shown');
+            if (days === 0 && !sessionWarningShown && !hasShownTrialWarning) {
+              toast({
+                title: `⏰ ${t('trial.endingSoon')}`,
+                description: t('trial.expiresIn', { hours, minutes }),
+                duration: 10000,
+              });
+              sessionStorage.setItem('npd_trial_warning_shown', 'true');
+              setHasShownTrialWarning(true);
+            }
+          } else {
+            setTrialRemaining(null); // Trial ended
           }
-        } else {
-          setTrialRemaining(null); // Trial ended
-        }
-      };
-      
-      updateCountdown();
-      const interval = setInterval(updateCountdown, 60000); // Update every minute
-      return () => clearInterval(interval);
-    }
-  }, [isProUser, hasAdminAccess, hasShownTrialWarning, toast]);
+        };
+        
+        updateCountdown();
+        const interval = setInterval(updateCountdown, 60000); // Update every minute
+        return () => clearInterval(interval);
+      }
+    };
+    loadTrialData();
+  }, [isProUser, hasAdminAccess, hasShownTrialWarning, toast, t]);
 
   const handleBackupData = async () => {
     try {
       const notesData = await loadNotesFromDB();
-      const folders = localStorage.getItem('folders') || '[]';
-      const backup = { notes: JSON.stringify(notesData), folders, timestamp: new Date().toISOString() };
+      const folders = await getSetting<any[]>('folders', []);
+      const backup = { notes: JSON.stringify(notesData), folders: JSON.stringify(folders), timestamp: new Date().toISOString() };
       const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -176,7 +179,10 @@ const Settings = () => {
               }));
               await saveNotesToDB(hydratedNotes);
             }
-              if (backup.folders) localStorage.setItem('folders', backup.folders);
+              if (backup.folders) {
+                const foldersData = JSON.parse(backup.folders);
+                await setSetting('folders', foldersData);
+              }
               toast({ title: t('toasts.dataRestored') });
               setTimeout(() => window.location.reload(), 1000);
             } catch (error) {
@@ -193,9 +199,10 @@ const Settings = () => {
   const handleDownloadData = async () => {
     try {
       const notesData = await loadNotesFromDB();
+      const folders = await getSetting<any[]>('folders', []);
       const allData = {
         notes: notesData,
-        folders: localStorage.getItem('folders'),
+        folders,
         timestamp: new Date().toISOString()
       };
       const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });

@@ -37,16 +37,16 @@ export const TaskAnalytics = ({ isOpen, onClose }: TaskAnalyticsProps) => {
   const [avgTasksPerDay, setAvgTasksPerDay] = useState(0);
 
   useEffect(() => {
-    const loadTasks = () => {
-      const savedTasks = localStorage.getItem('todoItems');
-      if (savedTasks) {
-        const allTasks: TodoItem[] = JSON.parse(savedTasks);
-        setTasks(allTasks);
-        setCompletedTasks(allTasks.filter(t => t.completed));
-        calculateStats(allTasks);
-      }
+    const loadTasks = async () => {
+      const { loadTasksFromDB } = await import('@/utils/taskStorage');
+      const allTasks = await loadTasksFromDB();
+      setTasks(allTasks);
+      setCompletedTasks(allTasks.filter(t => t.completed));
+      calculateStats(allTasks);
     };
-    loadTasks();
+    if (isOpen) {
+      loadTasks();
+    }
   }, [isOpen]);
 
   const calculateStats = (allTasks: TodoItem[]) => {

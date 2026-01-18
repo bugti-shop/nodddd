@@ -113,12 +113,13 @@ export class NotificationManager {
     }
   }
 
-  private handleNotificationReceived(notification: LocalNotificationSchema): void {
+  private async handleNotificationReceived(notification: LocalNotificationSchema): Promise<void> {
     // Triple heavy haptic burst for maximum attention on all reminders
     triggerTripleHeavyHaptic();
 
-    // Store notification in history
-    const history = JSON.parse(localStorage.getItem('notificationHistory') || '[]');
+    // Store notification in history using IndexedDB
+    const { getSetting, setSetting } = await import('@/utils/settingsStorage');
+    const history = await getSetting<any[]>('notificationHistory', []);
     history.unshift({
       id: notification.id,
       title: notification.title,
@@ -128,7 +129,7 @@ export class NotificationManager {
       extra: notification.extra,
     });
     // Keep only last 100 notifications
-    localStorage.setItem('notificationHistory', JSON.stringify(history.slice(0, 100)));
+    await setSetting('notificationHistory', history.slice(0, 100));
     
     // Dispatch event for real-time updates
     window.dispatchEvent(new CustomEvent('notificationReceived', { detail: notification }));
@@ -698,20 +699,23 @@ export class NotificationManager {
     }
   }
 
-  getNotificationHistory(): any[] {
-    return JSON.parse(localStorage.getItem('notificationHistory') || '[]');
+  async getNotificationHistory(): Promise<any[]> {
+    const { getSetting } = await import('@/utils/settingsStorage');
+    return getSetting<any[]>('notificationHistory', []);
   }
 
-  clearNotificationHistory(): void {
-    localStorage.setItem('notificationHistory', JSON.stringify([]));
+  async clearNotificationHistory(): Promise<void> {
+    const { setSetting } = await import('@/utils/settingsStorage');
+    await setSetting('notificationHistory', []);
   }
 
-  markNotificationAsRead(notificationId: number): void {
-    const history = JSON.parse(localStorage.getItem('notificationHistory') || '[]');
+  async markNotificationAsRead(notificationId: number): Promise<void> {
+    const { getSetting, setSetting } = await import('@/utils/settingsStorage');
+    const history = await getSetting<any[]>('notificationHistory', []);
     const updatedHistory = history.map((item: any) =>
       item.id === notificationId ? { ...item, read: true } : item
     );
-    localStorage.setItem('notificationHistory', JSON.stringify(updatedHistory));
+    await setSetting('notificationHistory', updatedHistory);
   }
 
   // Budget alert notifications
@@ -724,8 +728,9 @@ export class NotificationManager {
     if (budget <= 0) return null;
 
     const percentage = (spent / budget) * 100;
+    const { getSetting, setSetting } = await import('@/utils/settingsStorage');
     const alertKey = `budget_alert_${category}_${new Date().toDateString()}`;
-    const alertedPercentages = JSON.parse(localStorage.getItem(alertKey) || '[]');
+    const alertedPercentages = await getSetting<number[]>(alertKey, []);
 
     // Determine alert level
     let alertLevel: number | null = null;
@@ -791,7 +796,7 @@ export class NotificationManager {
 
       // Mark this alert level as sent for today
       alertedPercentages.push(alertLevel);
-      localStorage.setItem(alertKey, JSON.stringify(alertedPercentages));
+      await setSetting(alertKey, alertedPercentages);
 
       console.log(`Budget alert scheduled: ${category} at ${alertLevel}%`);
       return notificationId;
