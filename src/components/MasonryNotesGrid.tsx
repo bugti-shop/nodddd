@@ -3,6 +3,7 @@ import { Note } from '@/types/note';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Trash2, Archive } from 'lucide-react';
+import { triggerHaptic } from '@/utils/haptics';
 
 interface MasonryNotesGridProps {
   notes: Note[];
@@ -16,8 +17,22 @@ interface MasonryNotesGridProps {
 
 // Get background color based on note type or custom color
 const getNoteColor = (note: Note): string => {
-  // If note has a custom color, use it
-  if (note.color) return note.color;
+  // If note has a custom color (hex string), use it
+  if (note.color && typeof note.color === 'string' && note.color.startsWith('#')) {
+    return note.color;
+  }
+  
+  // Handle StickyColor values
+  if (note.color && note.type === 'sticky') {
+    const stickyColors: Record<string, string> = {
+      yellow: 'hsl(60, 100%, 81%)',
+      blue: 'hsl(197, 100%, 83%)',
+      green: 'hsl(142, 85%, 84%)',
+      pink: 'hsl(330, 100%, 86%)',
+      orange: 'hsl(6, 100%, 82%)',
+    };
+    return stickyColors[note.color as string] || 'hsl(48, 100%, 67%)';
+  }
   
   // Default colors by type
   const typeColors: Record<string, string> = {
@@ -86,6 +101,14 @@ const SwipeableNoteCard: React.FC<SwipeableNoteCardProps> = ({
     const diff = currentXRef.current - startXRef.current;
     // Limit swipe distance
     const clampedDiff = Math.max(-100, Math.min(100, diff));
+    
+    // Trigger haptic at threshold crossings
+    if (Math.abs(clampedDiff) >= 60 && Math.abs(swipeX) < 60) {
+      triggerHaptic('heavy');
+    } else if (Math.abs(clampedDiff) >= 30 && Math.abs(swipeX) < 30) {
+      triggerHaptic('light');
+    }
+    
     setSwipeX(clampedDiff);
   };
 
@@ -93,10 +116,12 @@ const SwipeableNoteCard: React.FC<SwipeableNoteCardProps> = ({
     if (!isSwiping) return;
     setIsSwiping(false);
     
-    // If swiped more than 60px, trigger action
+    // If swiped more than 60px, trigger action with haptic
     if (swipeX < -60 && onDelete) {
+      triggerHaptic('heavy');
       onDelete(note.id);
     } else if (swipeX > 60 && onArchive) {
+      triggerHaptic('heavy');
       onArchive(note.id);
     }
     
