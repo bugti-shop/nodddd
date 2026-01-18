@@ -159,7 +159,7 @@ export interface Note {
   type: NoteType;
   title: string;
   content: string;
-  color?: StickyColor;
+  color?: StickyColor | string; // StickyColor for sticky notes, hex string for custom colors
   images?: string[];
   voiceRecordings: VoiceRecording[];
   folderId?: string;
