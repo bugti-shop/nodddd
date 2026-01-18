@@ -99,7 +99,6 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [color, setColor] = useState<StickyColor>('yellow');
-  const [customColor, setCustomColor] = useState<string | undefined>(undefined);
   const [images, setImages] = useState<string[]>([]);
   const [voiceRecordings, setVoiceRecordings] = useState<VoiceRecording[]>([]);
   const [tableRows, setTableRows] = useState(3);
@@ -180,14 +179,7 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
       setNoteType(note.type);
       setTitle(note.title);
       setContent(note.content);
-      // Handle both StickyColor and custom hex colors
-      if (note.color && typeof note.color === 'string' && note.color.startsWith('#')) {
-        setCustomColor(note.color);
-        setColor('yellow'); // default
-      } else {
-        setColor((note.color as StickyColor) || 'yellow');
-        setCustomColor(undefined);
-      }
+      setColor(note.color || 'yellow');
       setImages(note.images || []);
       setVoiceRecordings(note.voiceRecordings);
       setSelectedFolderId(note.folderId);
@@ -222,7 +214,6 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
       setTitle('');
       setContent('');
       setColor('yellow');
-      setCustomColor(undefined);
       setImages([]);
       setVoiceRecordings([]);
       setSelectedFolderId(defaultFolderId);
@@ -295,7 +286,7 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
       type: noteType,
       title,
       content: noteType === 'code' ? '' : content,
-      color: noteType === 'sticky' ? color : (customColor || undefined),
+      color: noteType === 'sticky' ? color : undefined,
       images: noteType === 'sticky' ? undefined : images,
       voiceRecordings,
       folderId: selectedFolderId || noteType,
@@ -1008,55 +999,20 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
         </div>
       )}
 
-      {/* Color picker - for sticky notes (preset colors) and all other notes (custom color) */}
-      {!isReadingMode && noteType !== 'code' && noteType !== 'sketch' && noteType !== 'mindmap' && noteType !== 'expense' && (
+      {/* Sticky note color picker */}
+      {noteType === 'sticky' && !isReadingMode && (
         <div className="px-4 py-2 border-b bg-background">
-          <div className="flex items-center gap-2 flex-wrap">
-            {noteType === 'sticky' ? (
-              // Preset colors for sticky notes
-              <>
-                {STICKY_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-label={`Set sticky color ${c}`}
-                    onClick={() => setColor(c)}
-                    className={cn("h-7 w-7 rounded-full border", c === color && "ring-2 ring-ring")}
-                    style={{ backgroundColor: STICKY_COLOR_VALUES[c] }}
-                  />
-                ))}
-              </>
-            ) : (
-              // Custom color picker for other note types
-              <>
-                <span className="text-xs text-muted-foreground mr-2">{t('editor.noteColor', 'Color:')}</span>
-                {['#fef3c7', '#dbeafe', '#dcfce7', '#fce7f3', '#fed7aa', '#e0e7ff', '#ccfbf1', '#fecaca'].map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-label={`Set note color ${c}`}
-                    onClick={() => setCustomColor(c)}
-                    className={cn("h-6 w-6 rounded border", customColor === c && "ring-2 ring-ring")}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-                <button
-                  type="button"
-                  aria-label="Clear color"
-                  onClick={() => setCustomColor(undefined)}
-                  className={cn("h-6 w-6 rounded border bg-background flex items-center justify-center text-xs", !customColor && "ring-2 ring-ring")}
-                >
-                  ✕
-                </button>
-                <input
-                  type="color"
-                  value={customColor || '#ffffff'}
-                  onChange={(e) => setCustomColor(e.target.value)}
-                  className="h-6 w-6 rounded border cursor-pointer"
-                  title={t('editor.customColor', 'Custom color')}
-                />
-              </>
-            )}
+          <div className="flex items-center gap-2">
+            {STICKY_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-label={`Set sticky color ${c}`}
+                onClick={() => setColor(c)}
+                className={cn("h-7 w-7 rounded-full border", c === color && "ring-2 ring-ring")}
+                style={{ backgroundColor: STICKY_COLOR_VALUES[c] }}
+              />
+            ))}
           </div>
         </div>
       )}
