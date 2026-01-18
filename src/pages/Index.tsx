@@ -792,6 +792,8 @@ const Index = () => {
                     <MasonryNotesGrid
                       notes={filteredNotes.filter(n => n.isFavorite)}
                       onEdit={handleEditNote}
+                      onDelete={handleDeleteNote}
+                      onArchive={handleArchiveNote}
                       isSelectionMode={isSelectionMode}
                       selectedNoteIds={selectedNoteIds}
                       onToggleSelection={handleToggleNoteSelection}
@@ -815,6 +817,8 @@ const Index = () => {
                     <MasonryNotesGrid
                       notes={filteredNotes.filter(n => !n.isFavorite)}
                       onEdit={handleEditNote}
+                      onDelete={handleDeleteNote}
+                      onArchive={handleArchiveNote}
                       isSelectionMode={isSelectionMode}
                       selectedNoteIds={selectedNoteIds}
                       onToggleSelection={handleToggleNoteSelection}

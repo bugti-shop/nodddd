@@ -58,13 +58,13 @@ const Reminders = () => {
     };
   }, []);
 
-  const loadHistory = () => {
-    const history = notificationManager.getNotificationHistory();
+  const loadHistory = async () => {
+    const history = await notificationManager.getNotificationHistory();
     setHistoryItems(history);
   };
 
-  const handleClearHistory = () => {
-    notificationManager.clearNotificationHistory();
+  const handleClearHistory = async () => {
+    await notificationManager.clearNotificationHistory();
     setHistoryItems([]);
     toast.success('History cleared');
   };

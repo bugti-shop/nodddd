@@ -113,66 +113,48 @@ const TodoSettings = () => {
   const [eveningReminderHour, setEveningReminderHour] = useState(19);
 
   useEffect(() => {
-    try {
-      // Load tool visibility settings
-      const savedVisibility = localStorage.getItem('productivityToolVisibility');
-      if (savedVisibility) {
-        try {
-          setToolVisibility({ ...DEFAULT_TOOL_VISIBILITY, ...JSON.parse(savedVisibility) });
-        } catch (e) {
-          console.error('Failed to parse tool visibility', e);
+    const loadSettings = async () => {
+      try {
+        // Load tool visibility settings
+        const savedVisibility = await getSetting<Record<string, boolean> | null>('productivityToolVisibility', null);
+        if (savedVisibility) {
+          setToolVisibility({ ...DEFAULT_TOOL_VISIBILITY, ...savedVisibility });
         }
-      }
-      
-      // Load custom tools
-      const savedCustomTools = localStorage.getItem('customProductivityTools');
-      if (savedCustomTools) {
-        try {
-          setCustomTools(JSON.parse(savedCustomTools));
-        } catch (e) {
-          console.error('Failed to parse custom tools', e);
+        
+        // Load custom tools
+        const savedCustomTools = await getSetting<CustomTool[]>('customProductivityTools', []);
+        if (savedCustomTools.length > 0) {
+          setCustomTools(savedCustomTools);
         }
-      }
 
-      // Load available tasks from IndexedDB
-      loadTasksFromDB().then(tasks => {
+        // Load available tasks from IndexedDB
+        const tasks = await loadTasksFromDB();
         setAvailableTasks(tasks.slice(0, 50).map(t => ({ id: t.id, text: t.text || '' })));
-      }).catch(e => console.error('Failed to load tasks', e));
 
-      // Load available categories
-      const savedCategories = localStorage.getItem('categories');
-      if (savedCategories) {
-        try {
-          const parsed = JSON.parse(savedCategories);
-          setAvailableCategories(Array.isArray(parsed) ? parsed : []);
-        } catch (e) {
-          console.error('Failed to load categories', e);
+        // Load available categories
+        const savedCategories = await getSetting<{ id: string; name: string }[]>('categories', []);
+        setAvailableCategories(savedCategories);
+        
+        // Load auto-reminder times
+        const savedReminderTimes = await getSetting<{ morning: number; afternoon: number; evening: number } | null>('autoReminderTimes', null);
+        if (savedReminderTimes) {
+          setMorningReminderHour(savedReminderTimes.morning || 9);
+          setAfternoonReminderHour(savedReminderTimes.afternoon || 14);
+          setEveningReminderHour(savedReminderTimes.evening || 19);
         }
+      } catch (error) {
+        console.error('Error loading settings data:', error);
       }
-      
-      // Load auto-reminder times
-      const savedReminderTimes = localStorage.getItem('autoReminderTimes');
-      if (savedReminderTimes) {
-        try {
-          const times = JSON.parse(savedReminderTimes);
-          setMorningReminderHour(times.morning || 9);
-          setAfternoonReminderHour(times.afternoon || 14);
-          setEveningReminderHour(times.evening || 19);
-        } catch (e) {
-          console.error('Failed to load reminder times', e);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading settings data:', error);
-    }
+    };
+    loadSettings();
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('productivityToolVisibility', JSON.stringify(toolVisibility));
+    setSetting('productivityToolVisibility', toolVisibility);
   }, [toolVisibility]);
 
   useEffect(() => {
-    localStorage.setItem('customProductivityTools', JSON.stringify(customTools));
+    setSetting('customProductivityTools', customTools);
   }, [customTools]);
 
   const toggleToolVisibility = (toolId: string) => {
@@ -243,13 +225,13 @@ const TodoSettings = () => {
     return found ? found.icon : Target;
   };
 
-  const handleSaveAutoReminderTimes = () => {
+  const handleSaveAutoReminderTimes = async () => {
     const times = {
       morning: morningReminderHour,
       afternoon: afternoonReminderHour,
       evening: eveningReminderHour,
     };
-    localStorage.setItem('autoReminderTimes', JSON.stringify(times));
+    await setSetting('autoReminderTimes', times);
     setShowAutoReminderDialog(false);
     toast({ title: t('settings.reminderTimesSaved') });
   };
@@ -336,9 +318,11 @@ const TodoSettings = () => {
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteData = () => {
-    localStorage.removeItem('todoItems');
-    localStorage.removeItem('todoFolders');
+  const confirmDeleteData = async () => {
+    const { removeSetting } = await import('@/utils/settingsStorage');
+    const { saveTasksToDB } = await import('@/utils/taskStorage');
+    await saveTasksToDB([]);
+    await removeSetting('todoFolders');
     toast({ title: t('settings.allDataDeleted') });
     setShowDeleteDialog(false);
     setTimeout(() => window.location.reload(), 1000);

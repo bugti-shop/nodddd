@@ -66,11 +66,12 @@ const CustomToolDetail = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      const { getSetting } = await import('@/utils/settingsStorage');
+      
       // Load custom tool
-      const savedTools = localStorage.getItem('customProductivityTools');
-      if (savedTools && toolId) {
-        const tools: CustomTool[] = JSON.parse(savedTools);
-        const foundTool = tools.find(t => t.id === toolId);
+      const savedTools = await getSetting<CustomTool[]>('customProductivityTools', []);
+      if (savedTools.length > 0 && toolId) {
+        const foundTool = savedTools.find(t => t.id === toolId);
         setTool(foundTool || null);
       }
 
@@ -79,10 +80,8 @@ const CustomToolDetail = () => {
       setAllTasks(tasks);
 
       // Load folders
-      const savedFolders = localStorage.getItem('todoFolders');
-      if (savedFolders) {
-        setFolders(JSON.parse(savedFolders));
-      }
+      const savedFolders = await getSetting<Folder[]>('todoFolders', []);
+      setFolders(savedFolders);
     };
     loadData();
   }, [toolId]);
@@ -127,8 +126,9 @@ const CustomToolDetail = () => {
     
     // Also remove from tool's linked tasks
     if (tool) {
-      const updatedTools = JSON.parse(localStorage.getItem('customProductivityTools') || '[]');
-      const updatedTool = updatedTools.map((t: CustomTool) => {
+      const { getSetting, setSetting } = await import('@/utils/settingsStorage');
+      const savedTools = await getSetting<CustomTool[]>('customProductivityTools', []);
+      const updatedTool = savedTools.map((t: CustomTool) => {
         if (t.id === tool.id) {
           return {
             ...t,
@@ -137,7 +137,7 @@ const CustomToolDetail = () => {
         }
         return t;
       });
-      localStorage.setItem('customProductivityTools', JSON.stringify(updatedTool));
+      await setSetting('customProductivityTools', updatedTool);
     }
     
     setShowDeleteDialog(false);
@@ -165,11 +165,12 @@ const CustomToolDetail = () => {
     toast.success('Task rescheduled');
   };
 
-  const handleUnlinkTask = (taskId: string) => {
+  const handleUnlinkTask = async (taskId: string) => {
     if (!tool) return;
     
-    const updatedTools = JSON.parse(localStorage.getItem('customProductivityTools') || '[]');
-    const updated = updatedTools.map((t: CustomTool) => {
+    const { getSetting, setSetting } = await import('@/utils/settingsStorage');
+    const savedTools = await getSetting<CustomTool[]>('customProductivityTools', []);
+    const updated = savedTools.map((t: CustomTool) => {
       if (t.id === tool.id) {
         return {
           ...t,
@@ -178,7 +179,7 @@ const CustomToolDetail = () => {
       }
       return t;
     });
-    localStorage.setItem('customProductivityTools', JSON.stringify(updated));
+    await setSetting('customProductivityTools', updated);
     
     // Update local state
     setTool(prev => prev ? {
@@ -205,8 +206,9 @@ const CustomToolDetail = () => {
     window.dispatchEvent(new Event('tasksUpdated'));
     
     // Link task to this tool
-    const updatedTools = JSON.parse(localStorage.getItem('customProductivityTools') || '[]');
-    const updated = updatedTools.map((t: CustomTool) => {
+    const { getSetting, setSetting } = await import('@/utils/settingsStorage');
+    const savedTools = await getSetting<CustomTool[]>('customProductivityTools', []);
+    const updated = savedTools.map((t: CustomTool) => {
       if (t.id === tool.id) {
         return {
           ...t,
@@ -215,7 +217,7 @@ const CustomToolDetail = () => {
       }
       return t;
     });
-    localStorage.setItem('customProductivityTools', JSON.stringify(updated));
+    await setSetting('customProductivityTools', updated);
     
     // Update local tool state
     setTool(prev => prev ? {
@@ -243,8 +245,9 @@ const CustomToolDetail = () => {
     window.dispatchEvent(new Event('tasksUpdated'));
     
     // Link task to this tool
-    const updatedTools = JSON.parse(localStorage.getItem('customProductivityTools') || '[]');
-    const updated = updatedTools.map((t: CustomTool) => {
+    const { getSetting, setSetting } = await import('@/utils/settingsStorage');
+    const savedTools = await getSetting<CustomTool[]>('customProductivityTools', []);
+    const updated = savedTools.map((t: CustomTool) => {
       if (t.id === tool.id) {
         return {
           ...t,
@@ -253,7 +256,7 @@ const CustomToolDetail = () => {
       }
       return t;
     });
-    localStorage.setItem('customProductivityTools', JSON.stringify(updated));
+    await setSetting('customProductivityTools', updated);
     
     // Update local tool state
     setTool(prev => prev ? {
@@ -265,7 +268,8 @@ const CustomToolDetail = () => {
     toast.success('Task added');
   };
 
-  const handleCreateFolder = (name: string, color: string) => {
+  const handleCreateFolder = async (name: string, color: string) => {
+    const { setSetting } = await import('@/utils/settingsStorage');
     const newFolder: Folder = {
       id: Date.now().toString(),
       name,
@@ -275,7 +279,7 @@ const CustomToolDetail = () => {
     };
     const updatedFolders = [...folders, newFolder];
     setFolders(updatedFolders);
-    localStorage.setItem('todoFolders', JSON.stringify(updatedFolders));
+    await setSetting('todoFolders', updatedFolders);
   };
 
   const IconComponent = tool ? TOOL_ICONS[tool.icon] || Target : Target;

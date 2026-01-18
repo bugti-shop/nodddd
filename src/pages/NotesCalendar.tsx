@@ -26,10 +26,16 @@ const NotesCalendar = () => {
   const [selectedNoteTypes, setSelectedNoteTypes] = useState<NoteType[]>([
     'sticky', 'lined', 'regular', 'sketch', 'code', 'mindmap'
   ]);
-  const [folders] = useState<Folder[]>(() => {
-    const saved = localStorage.getItem('folders');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [folders, setFolders] = useState<Folder[]>([]);
+  
+  useEffect(() => {
+    const loadFolders = async () => {
+      const { getSetting } = await import('@/utils/settingsStorage');
+      const saved = await getSetting<Folder[]>('folders', []);
+      setFolders(saved);
+    };
+    loadFolders();
+  }, []);
 
   useEffect(() => {
     const loadNotes = async () => {

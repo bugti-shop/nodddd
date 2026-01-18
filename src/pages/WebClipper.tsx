@@ -106,12 +106,11 @@ const WebClipper = () => {
         updatedAt: new Date(),
       };
 
-      // Get existing notes
-      const existingNotes = JSON.parse(localStorage.getItem('notes') || '[]');
-      
-      // Add new note
+      // Save note to IndexedDB
+      const { loadNotesFromDB, saveNotesToDB } = await import('@/utils/noteStorage');
+      const existingNotes = await loadNotesFromDB();
       const updatedNotes = [newNote, ...existingNotes];
-      localStorage.setItem('notes', JSON.stringify(updatedNotes));
+      await saveNotesToDB(updatedNotes);
 
       setSaved(true);
       toast({
