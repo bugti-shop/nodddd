@@ -377,12 +377,13 @@ export const TaskDetailPage = ({
       coloredTags: [...(task.coloredTags || []), newTag]
     });
 
-    // Save to suggestions
-    const savedTags = JSON.parse(localStorage.getItem('coloredTagSuggestions') || '[]');
-    const exists = savedTags.some((t: ColoredTag) => t.name === newTag.name);
-    if (!exists) {
-      localStorage.setItem('coloredTagSuggestions', JSON.stringify([newTag, ...savedTags].slice(0, 20)));
-    }
+    // Save to suggestions in IndexedDB
+    getSetting<ColoredTag[]>('coloredTagSuggestions', []).then(savedTags => {
+      const exists = savedTags.some((t: ColoredTag) => t.name === newTag.name);
+      if (!exists) {
+        setSetting('coloredTagSuggestions', [newTag, ...savedTags].slice(0, 20));
+      }
+    });
 
     setNewTagName('');
     setShowTagInput(false);

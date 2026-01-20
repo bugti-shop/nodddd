@@ -58,10 +58,11 @@ export const TaskFilterSheet = ({
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem('savedColoredTags');
-    if (saved) {
-      setSavedTags(JSON.parse(saved));
-    }
+    const loadTags = async () => {
+      const saved = await getSetting<ColoredTag[]>('savedColoredTags', []);
+      setSavedTags(saved);
+    };
+    loadTags();
   }, [isOpen]);
 
   const hasActiveFilters = selectedFolderId !== null || dateFilter !== 'all' || priorityFilter !== 'all' || statusFilter !== 'all' || selectedTags.length > 0;

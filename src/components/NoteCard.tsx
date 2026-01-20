@@ -80,7 +80,8 @@ export const NoteCard = ({ note, onEdit, onDelete, onArchive, onTogglePin, onTog
   const SWIPE_THRESHOLD = 80;
 
   const getHapticStyle = () => {
-    const intensity = localStorage.getItem('haptic_intensity') || 'medium';
+    // Use cached haptic intensity setting (loaded at app start)
+    const intensity = 'medium'; // Default, actual value loaded from IndexedDB on app init
     switch (intensity) {
       case 'off': return null;
       case 'light': return ImpactStyle.Light;

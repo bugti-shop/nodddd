@@ -8,6 +8,11 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { notificationManager } from '@/utils/notifications';
 import { toast } from 'sonner';
 import { useHardwareBackButton } from '@/hooks/useHardwareBackButton';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
+
+// Ref for pending subtasks (sync access during task creation)
+let pendingSubtasksRef: { current: TodoItem[] | undefined } = { current: undefined };
+
 import {
   Calendar as CalendarIcon,
   Flag,
@@ -157,9 +162,9 @@ export const TaskInputSheet = ({ isOpen, onClose, onAddTask, folders, selectedFo
     return hasNaturalLanguagePatterns(taskText);
   }, [taskText]);
 
-  const handleSaveActions = (actions: ActionItem[]) => {
+  const handleSaveActions = async (actions: ActionItem[]) => {
     setActionItems(actions);
-    localStorage.setItem('taskInputActions', JSON.stringify(actions));
+    await setSetting('taskInputActions', actions);
     toast.success(t('toasts.actionsUpdated'));
   };
 
@@ -269,13 +274,9 @@ export const TaskInputSheet = ({ isOpen, onClose, onAddTask, folders, selectedFo
       }
     }
 
-    // Check for pending subtasks from template
-    const pendingSubtasksJson = localStorage.getItem('pendingSubtasks');
-    let subtasks: TodoItem[] | undefined;
-    if (pendingSubtasksJson) {
-      subtasks = JSON.parse(pendingSubtasksJson);
-      localStorage.removeItem('pendingSubtasks');
-    }
+    // Check for pending subtasks from template (use ref to avoid async issues)
+    const subtasks = pendingSubtasksRef.current;
+    pendingSubtasksRef.current = undefined;
 
     const mainTask: Omit<TodoItem, 'id' | 'completed'> = {
       text: finalText,
@@ -326,8 +327,8 @@ export const TaskInputSheet = ({ isOpen, onClose, onAddTask, folders, selectedFo
         text,
         completed: false
       }));
-      // Store subtasks to be added when task is created
-      localStorage.setItem('pendingSubtasks', JSON.stringify(subtasksList));
+      // Store subtasks to be added when task is created (use ref for sync access)
+      pendingSubtasksRef.current = subtasksList as TodoItem[];
     }
     
     toast.success(t('toasts.templateApplied', { name: template.name }));
@@ -623,11 +624,11 @@ export const TaskInputSheet = ({ isOpen, onClose, onAddTask, folders, selectedFo
       const newTag = { name: tagInput.trim(), color: selectedTagColor };
       setColoredTags([...coloredTags, newTag]);
       
-      // Save to localStorage for suggestions
+      // Save to IndexedDB for suggestions
       const existingSaved = savedTags.filter(t => t.name !== newTag.name);
       const updatedSaved = [newTag, ...existingSaved].slice(0, 20); // Keep last 20 tags
       setSavedTags(updatedSaved);
-      localStorage.setItem('savedColoredTags', JSON.stringify(updatedSaved));
+      setSetting('savedColoredTags', updatedSaved);
       
       setTagInput('');
       setShowTagInput(false);
@@ -647,7 +648,7 @@ export const TaskInputSheet = ({ isOpen, onClose, onAddTask, folders, selectedFo
   const handleDeleteSavedTag = (tagName: string) => {
     const updatedSaved = savedTags.filter(t => t.name !== tagName);
     setSavedTags(updatedSaved);
-    localStorage.setItem('savedColoredTags', JSON.stringify(updatedSaved));
+    setSetting('savedColoredTags', updatedSaved);
   };
 
   const handleStartEditTag = (tag: ColoredTag) => {
@@ -663,7 +664,7 @@ export const TaskInputSheet = ({ isOpen, onClose, onAddTask, folders, selectedFo
       t.name === editingTag.name ? { name: editTagName.trim(), color: editTagColor } : t
     );
     setSavedTags(updatedSaved);
-    localStorage.setItem('savedColoredTags', JSON.stringify(updatedSaved));
+    setSetting('savedColoredTags', updatedSaved);
     
     // Also update any currently selected tags
     setColoredTags(coloredTags.map(t => 
