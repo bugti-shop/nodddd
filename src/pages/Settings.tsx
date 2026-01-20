@@ -222,8 +222,9 @@ const Settings = () => {
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteData = () => {
-    localStorage.clear();
+  const confirmDeleteData = async () => {
+    // Clear IndexedDB settings
+    await clearAllSettings();
     toast({ title: t('toasts.dataDeleted') });
     setShowDeleteDialog(false);
     setTimeout(() => window.location.href = '/', 1000);
