@@ -3,6 +3,7 @@ import { TodoItem, Note, Priority } from '@/types/note';
 import { RepeatSettings, RepeatFrequency } from '@/components/TaskDateTimePage';
 import { addMinutes, addHours, addDays, addWeeks, addMonths, addYears } from 'date-fns';
 import { triggerTripleHeavyHaptic } from './haptics';
+import { getSetting, setSetting } from './settingsStorage';
 
 const DEFAULT_NOTIFICATION_ICON = 'npd_notification_icon';
 
@@ -213,14 +214,15 @@ export class NotificationManager {
         ],
       });
 
-      // Update history to show it was snoozed
-      const history = JSON.parse(localStorage.getItem('notificationHistory') || '[]');
-      const updatedHistory = history.map((item: any) =>
-        item.id === notification.id 
-          ? { ...item, snoozed: true, snoozedUntil: snoozeTime.toISOString(), snoozeLabel }
-          : item
-      );
-      localStorage.setItem('notificationHistory', JSON.stringify(updatedHistory));
+      // Update history to show it was snoozed (async)
+      getSetting<any[]>('notificationHistory', []).then(history => {
+        const updatedHistory = history.map((item: any) =>
+          item.id === notification.id 
+            ? { ...item, snoozed: true, snoozedUntil: snoozeTime.toISOString(), snoozeLabel }
+            : item
+        );
+        setSetting('notificationHistory', updatedHistory);
+      });
 
       // Dispatch event for UI updates
       window.dispatchEvent(new CustomEvent('notificationSnoozed', { 
@@ -562,11 +564,11 @@ export class NotificationManager {
    * Get saved auto-reminder times from localStorage
    * Defaults: morning (9 AM), afternoon (2 PM), evening (7 PM)
    */
-  getAutoReminderTimes(): { morning: number; afternoon: number; evening: number } {
+  async getAutoReminderTimes(): Promise<{ morning: number; afternoon: number; evening: number }> {
     try {
-      const saved = localStorage.getItem('autoReminderTimes');
+      const saved = await getSetting<{ morning: number; afternoon: number; evening: number } | null>('autoReminderTimes', null);
       if (saved) {
-        return JSON.parse(saved);
+        return saved;
       }
     } catch (e) {
       console.error('Error loading auto-reminder times:', e);
@@ -598,7 +600,7 @@ export class NotificationManager {
       const now = new Date();
       
       // Get customizable reminder times from settings
-      const times = this.getAutoReminderTimes();
+      const times = await this.getAutoReminderTimes();
       const reminderHours = [times.morning, times.afternoon, times.evening];
       
       // Schedule for next 7 days

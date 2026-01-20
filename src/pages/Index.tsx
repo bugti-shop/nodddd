@@ -32,6 +32,7 @@ import { getSuggestedFolders } from '@/utils/personalization';
 import { triggerHaptic } from '@/utils/haptics';
 import { loadNotesFromDB, saveNoteToDBSingle, deleteNoteFromDB, migrateNotesToIndexedDB, saveNotesToDB } from '@/utils/noteStorage';
 import { getSetting, setSetting } from '@/utils/settingsStorage';
+import { logActivity } from '@/utils/activityLogger';
 
 const Index = () => {
   const { t } = useTranslation();
@@ -56,13 +57,24 @@ const Index = () => {
   const { isOnline, isSyncing, hasError, lastSync } = useRealtimeSync();
   const syncEnabled = syncManager.isSyncEnabled();
 
-  // Load grid view preference from IndexedDB
+  // Load all preferences from IndexedDB
   useEffect(() => {
-    const loadGridViewPref = async () => {
-      const pref = await getSetting<boolean>('notesGridView', false);
-      setIsGridView(pref);
+    const loadPreferences = async () => {
+      const [gridViewPref, sortByPref, filterByTypePref, viewModePref] = await Promise.all([
+        getSetting<boolean>('notesGridView', false),
+        getSetting<'date' | 'title' | 'type'>('notesSortBy', 'date'),
+        getSetting<NoteType | null>('notesFilterByType', null),
+        getSetting<'notes' | 'trash' | 'archive'>('notesViewMode', 'notes'),
+      ]);
+      setIsGridView(gridViewPref);
+      setSortBy(sortByPref);
+      setFilterByType(filterByTypePref);
+      setViewMode(viewModePref);
+      
+      // Log app open activity
+      logActivity('app_open', 'User opened Notes home page');
     };
-    loadGridViewPref();
+    loadPreferences();
   }, []);
 
   // Toggle grid view and save preference
@@ -70,7 +82,13 @@ const Index = () => {
     const newValue = !isGridView;
     setIsGridView(newValue);
     await setSetting('notesGridView', newValue);
+    logActivity('grid_view_toggle', `Switched to ${newValue ? 'grid' : 'list'} view`);
   };
+  
+  // Persist sort/filter/view mode changes
+  useEffect(() => { setSetting('notesSortBy', sortBy); }, [sortBy]);
+  useEffect(() => { setSetting('notesFilterByType', filterByType); }, [filterByType]);
+  useEffect(() => { setSetting('notesViewMode', viewMode); }, [viewMode]);
 
   // Check onboarding status on mount
   useEffect(() => {
@@ -185,6 +203,7 @@ const Index = () => {
         ? { ...n, isDeleted: true, deletedAt: new Date() } 
         : n
     ));
+    logActivity('note_delete', 'Note moved to trash', { entityId: id, entityType: 'note' });
   };
 
   const handleArchiveNote = (id: string) => {
@@ -193,6 +212,7 @@ const Index = () => {
         ? { ...n, isArchived: true, archivedAt: new Date() } 
         : n
     ));
+    logActivity('note_archive', 'Note archived', { entityId: id, entityType: 'note' });
   };
 
   const handleRestoreFromTrash = (id: string) => {
@@ -201,6 +221,7 @@ const Index = () => {
         ? { ...n, isDeleted: false, deletedAt: undefined } 
         : n
     ));
+    logActivity('note_restore', 'Note restored from trash', { entityId: id, entityType: 'note' });
   };
 
   const handleRestoreFromArchive = (id: string) => {
@@ -209,14 +230,17 @@ const Index = () => {
         ? { ...n, isArchived: false, archivedAt: undefined } 
         : n
     ));
+    logActivity('note_restore', 'Note restored from archive', { entityId: id, entityType: 'note' });
   };
 
   const handlePermanentDelete = (id: string) => {
     setNotes((prev) => prev.filter((n) => n.id !== id));
+    logActivity('note_delete', 'Note permanently deleted', { entityId: id, entityType: 'note' });
   };
 
   const handleEmptyTrash = () => {
     setNotes((prev) => prev.filter((n) => !n.isDeleted));
+    logActivity('note_delete', 'Trash emptied');
   };
 
   const handleDuplicateNote = (noteId: string) => {

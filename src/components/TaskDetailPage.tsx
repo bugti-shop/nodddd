@@ -9,6 +9,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { useHardwareBackButton } from '@/hooks/useHardwareBackButton';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
+import { logActivity } from '@/utils/activityLogger';
 import { TaskStatusBadge, TASK_STATUS_OPTIONS, getStatusConfig } from './TaskStatusBadge';
 import {
   FolderIcon,
