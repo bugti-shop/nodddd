@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { TodoItem } from '@/types/note';
 import { MapPin, X, Navigation, ExternalLink } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { getSetting, setSetting } from '@/utils/settingsStorage';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -40,12 +41,15 @@ export const LocationRemindersMap = ({
   );
 
   useEffect(() => {
-    const token = localStorage.getItem('mapbox_token');
-    if (token) {
-      setMapboxToken(token);
-    } else {
-      setShowTokenInput(true);
-    }
+    const loadToken = async () => {
+      const token = await getSetting<string>('mapbox_token', '');
+      if (token) {
+        setMapboxToken(token);
+      } else {
+        setShowTokenInput(true);
+      }
+    };
+    loadToken();
   }, []);
 
   useEffect(() => {
@@ -185,9 +189,9 @@ export const LocationRemindersMap = ({
     };
   };
 
-  const handleSaveToken = () => {
+  const handleSaveToken = async () => {
     if (tokenInput.trim()) {
-      localStorage.setItem('mapbox_token', tokenInput.trim());
+      await setSetting('mapbox_token', tokenInput.trim());
       setMapboxToken(tokenInput.trim());
       setShowTokenInput(false);
     }

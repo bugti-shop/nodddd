@@ -9,6 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Folder, Priority, ColoredTag, TaskStatus } from '@/types/note';
 import { X, Tag, Circle, Clock, Loader2, CheckCircle } from 'lucide-react';
 import { useHardwareBackButton } from '@/hooks/useHardwareBackButton';
+import { getSetting } from '@/utils/settingsStorage';
+import { logActivity } from '@/utils/activityLogger';
 
 export type DateFilter = 'all' | 'today' | 'tomorrow' | 'this-week' | 'overdue' | 'no-date' | 'has-date';
 export type PriorityFilter = 'all' | Priority;

@@ -6,6 +6,8 @@ import { Trash2, Edit, Mic, FileText, Pen, Pin, FileCode, GitBranch, AlignLeft, 
 import { cn } from '@/lib/utils';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { getNoteProtection, NoteProtection } from '@/utils/noteProtection';
+import { getSetting } from '@/utils/settingsStorage';
+import { logActivity } from '@/utils/activityLogger';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,8 +82,8 @@ export const NoteCard = ({ note, onEdit, onDelete, onArchive, onTogglePin, onTog
   const SWIPE_THRESHOLD = 80;
 
   const getHapticStyle = () => {
-    // Use cached haptic intensity setting (loaded at app start)
-    const intensity = 'medium'; // Default, actual value loaded from IndexedDB on app init
+    // Default intensity, actual value is loaded from IndexedDB on app init
+    const intensity: string = 'medium';
     switch (intensity) {
       case 'off': return null;
       case 'light': return ImpactStyle.Light;

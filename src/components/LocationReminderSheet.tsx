@@ -8,6 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { useHardwareBackButton } from '@/hooks/useHardwareBackButton';
 import { MapPin, Navigation, Search, X, Bell, ArrowRight, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { setSetting } from '@/utils/settingsStorage';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -362,9 +363,9 @@ export const LocationReminderSheet = ({
     onClose();
   };
 
-  const handleSaveToken = () => {
+  const handleSaveToken = async () => {
     if (mapboxToken.trim()) {
-      localStorage.setItem('mapbox_token', mapboxToken.trim());
+      await setSetting('mapbox_token', mapboxToken.trim());
       setShowTokenInput(false);
     }
   };

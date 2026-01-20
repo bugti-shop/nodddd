@@ -54,6 +54,8 @@ import { useResolvedTaskMedia } from '@/hooks/useResolvedTaskMedia';
 import { ResolvedImageDialog } from '@/components/ResolvedImageDialog';
 import { playCompletionSound } from '@/utils/taskSounds';
 import { HideDetailsOptions } from '@/components/TaskOptionsSheet';
+import { logActivity } from '@/utils/activityLogger';
+
 type ViewMode = 'flat' | 'kanban' | 'kanban-status' | 'timeline' | 'progress' | 'priority' | 'history';
 type SortBy = 'date' | 'priority' | 'name' | 'created';
 
@@ -218,16 +220,16 @@ const Today = () => {
     setSetting('todoStatusFilter', statusFilter);
     setSetting('todoTagFilter', tagFilter);
   }, [dateFilter, priorityFilter, statusFilter, tagFilter]);
-  useEffect(() => { setSetting('todoViewMode', viewMode); }, [viewMode]);
+  useEffect(() => { setSetting('todoViewMode', viewMode); logActivity('view_mode_change', `View mode: ${viewMode}`); }, [viewMode]);
   useEffect(() => { setSetting('todoHideDetailsOptions', hideDetailsOptions); }, [hideDetailsOptions]);
-  useEffect(() => { setSetting('todoSortBy', sortBy); }, [sortBy]);
-  useEffect(() => { setSetting('todoSmartList', smartList); }, [smartList]);
+  useEffect(() => { setSetting('todoSortBy', sortBy); logActivity('sort_change', `Sort by: ${sortBy}`); }, [sortBy]);
+  useEffect(() => { setSetting('todoSmartList', smartList); logActivity('smart_list_change', `Smart list: ${smartList}`); }, [smartList]);
   useEffect(() => { setSetting('todoSelectedFolder', selectedFolderId || 'null'); }, [selectedFolderId]);
   useEffect(() => { setSetting('todoDefaultSectionId', defaultSectionId || ''); }, [defaultSectionId]);
   useEffect(() => { setSetting('todoTaskAddPosition', taskAddPosition); }, [taskAddPosition]);
   useEffect(() => { setSetting('todoShowStatusBadge', showStatusBadge); }, [showStatusBadge]);
-  useEffect(() => { setSetting('todoCompactMode', compactMode); }, [compactMode]);
-  useEffect(() => { setSetting('todoGroupByOption', groupByOption); }, [groupByOption]);
+  useEffect(() => { setSetting('todoCompactMode', compactMode); logActivity('compact_mode_toggle', `Compact mode: ${compactMode}`); }, [compactMode]);
+  useEffect(() => { setSetting('todoGroupByOption', groupByOption); logActivity('group_by_change', `Group by: ${groupByOption}`); }, [groupByOption]);
 
   // Start geofencing for location-based reminders
   useEffect(() => {
